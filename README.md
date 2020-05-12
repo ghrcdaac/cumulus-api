@@ -16,6 +16,17 @@ This python client library provides various utilities for developers to interact
 python setup.py install
 
 ## Usage 
+Either source the env.sh and create cumulus-api instance as 
+```code
+from cumulus_api import CumulusApi
+cml = CumulusApi()
+```
+or add the path to the config file to CumulusAPI instance as
+```code
+from cumulus_api import CumulusApi
+cml = CumulusApi("path/to/configFile")
+```
+
 Please see examples folder
 
 ## config
@@ -30,7 +41,7 @@ USER_PASSWORD=************
 ```
 
 ## env.sh
-Example of setting up environement variables
+Example of setting up environment variables
 ```code
 export INVOKE_BASE_URL=************
 export BASE_URL=************

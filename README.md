@@ -16,15 +16,15 @@ This python client library provides various utilities for developers to interact
 python setup.py install
 
 ## Usage 
-Either source the env.sh and create cumulus-api instance as 
+Either source env.sh file and create CumulusApi instance as 
 ```code
 from cumulus_api import CumulusApi
 cml = CumulusApi()
 ```
-or add the path to the config file to CumulusAPI instance as
+or add the path to the config file config.cfg to CumulusAPI instance as
 ```code
 from cumulus_api import CumulusApi
-cml = CumulusApi("path/to/configFile")
+cml = CumulusApi("path/to/config.cfg")
 ```
 
 Please see examples folder

@@ -1,0 +1,12 @@
+.idea
+.idea/*
+*.pyc
+config.cfg
+*.egg*
+dist
+build
+venv
+venv/*
+*env.sh
+.ipynb*
+

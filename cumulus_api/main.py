@@ -319,13 +319,6 @@ class CumulusApi:
         :return: Returns a mapping of the updated properties.
         """
         record_type = "rules/%s" % name
-        rule_value = data['rule']['value']
-        rule_state = data['state']
-        data = {"rule": {
-            "value": rule_value
-        },
-            "state": rule_state
-        }
         return self.__crud_records(record_type=record_type, verb="put", data=data)
 
     def delete_rule(self, name):

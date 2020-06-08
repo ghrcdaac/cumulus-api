@@ -1,7 +1,7 @@
 
 # py-Cumulus-api
 Python client library that abstracts 
-[CUMULUS API](https://cumulus-nasa.github.io/cumulus-api/?language=cURL#cumulus-api)
+[CUMULUS API](https://nasa.github.io/cumulus-api/)
  calls  to interact with the [Cumulus Framework](https://github.com/cumulus-nasa/cumulus), such as monitoring status or 
  creating, editing, and deleting records. This is the same API that powers the 
  [Cumulus dashboard](https://github.com/cumulus-nasa/cumulus-dashboard

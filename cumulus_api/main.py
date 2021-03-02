@@ -2,7 +2,16 @@ import requests
 import logging
 import os
 from configparser import ConfigParser
-
+from cryptography.hazmat.primitives.serialization.pkcs12 import (
+    load_key_and_certificates,
+)
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PrivateFormat,
+    NoEncryption,
+)
+from cryptography.hazmat.backends import default_backend
+from requests_toolbelt.adapters.x509 import X509Adapter
 
 class CumulusApi:
     def __init__(self, os_env=True, config_path=None, token=None):
@@ -66,17 +75,53 @@ class CumulusApi:
         Get Earth Data Token
         :return: Token otherwise raise exception
         """
+        error_str = "Getting the token"
+        if config.get("USE_LAUNCHPAD"):
+            try:
+                backend = default_backend()
+
+                with open(config.get("LAUNCHPAD_CERT"), "rb") as pkcs12_file:
+                    pkcs12_data = pkcs12_file.read()
+
+                pkcs12_password_bytes = config.get("LAUNCHPAD_PASSPHRASE").encode()
+
+                pycaP12 = load_key_and_certificates(
+                    pkcs12_data, pkcs12_password_bytes, backend
+                )
+
+                cert_bytes = pycaP12[1].public_bytes(Encoding.DER)
+                pk_bytes = pycaP12[0].private_bytes(
+                    Encoding.DER, PrivateFormat.PKCS8, NoEncryption()
+                )
+
+                adapter = X509Adapter(
+                    max_retries=3,
+                    cert_bytes=cert_bytes,
+                    pk_bytes=pk_bytes,
+                    encoding=Encoding.DER,
+                )
+                session = requests.Session()
+                session.mount("https://", adapter)
+
+                r = session.get(config.get("LAUNCHPAD_URL"))
+                response = r.json()
+                token = response["sm_token"]
+                return token
+            except Exception as ex:
+                error_str = f"{error_str} {str(ex)}"
+                logging.error(error_str)
+                raise error_str
+
         ed_base_url = config.get("BASE_URL", "https://uat.urs.earthdata.nasa.gov").rstrip('/')  # Earth data base URL
         ed_client_id = config.get("CLIENT_ID")  # Earth data client (application) id
         url = f"{ed_base_url}/oauth/authorize?client_id={ed_client_id}" \
               f"&redirect_uri={self.INVOKE_BASE_URL}/token&response_type=code"
         user_name, password = config.get("USER_NAME"), config.get("USER_PASSWORD")
         re = requests.get(url=url, auth=(user_name, password))
-        error_str = "Getting the token"
         try:
             data = re.json()
             if "time out" in data['message']:
-                logging.error(data['message']) 
+                logging.error(data['message'])
                 error_str = f"{error_str}: {data['message']}"
             return data['message']['token']
         except Exception as ex:
@@ -276,7 +321,7 @@ class CumulusApi:
         """
         record_type = f"providers/{provider_id}"
         return self.__crud_records(record_type=record_type, verb="delete")
-    
+
     # ============== Workflows ===============
 
     def list_workflows(self, **kwargs):

@@ -336,7 +336,9 @@ class CumulusApi:
         :param name: rule name
         :return:
         """
-        pass
+        record_type = "rules/%s" % name
+        return self.__crud_records(record_type=record_type, verb="put")
+
 
     # ============== Stats ===============
 

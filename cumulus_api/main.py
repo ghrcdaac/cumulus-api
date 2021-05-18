@@ -16,7 +16,7 @@ class CumulusApi:
             error = "Config file path, environment variables or token should be supplied"
             logging.error(error)
             raise ValueError(error)
-        self.config = os.environ
+        self.__config = os.environ
         # If the token provided ignore the config file
         if config_path:
             config_parser = ConfigParser(self.__config)

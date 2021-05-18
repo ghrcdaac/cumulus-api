@@ -33,19 +33,19 @@ Please see examples folder
 Example of a config file passed to cumulus-api instance
 ```angular2html
 [DEFAULT]
-INVOKE_BASE_URL=************
-BASE_URL=************
-CLIENT_ID=************************
-USER_NAME=************
-USER_PASSWORD=************
+INVOKE_BASE_URL=************ // Cumulus archive URL
+BASE_URL=************              // URS URL (https://uat.urs.earthdata.nasa.gov/)
+CLIENT_ID=************************ // URS application id
+USER_NAME=************             // URS username
+USER_PASSWORD=************         // URS password
 ```
 
 ## env.sh
 Example of setting up environment variables
 ```code
-export INVOKE_BASE_URL=************
-export BASE_URL=************
-export CLIENT_ID=************************
-export USER_NAME=************
-export USER_PASSWORD=************
+export INVOKE_BASE_URL=************       // Cumulus archive URL
+export BASE_URL=************              // URS URL (https://uat.urs.earthdata.nasa.gov/)
+export CLIENT_ID=************************ // URS application id
+export USER_NAME=************             // URS username
+export USER_PASSWORD=************         // URS password
 ```

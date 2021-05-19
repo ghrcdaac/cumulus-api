@@ -16,13 +16,13 @@ class CumulusApi:
             error = "Config file path, environment variables or token should be supplied"
             logging.error(error)
             raise ValueError(error)
-        config = os.environ
+        self.__config = os.environ
         # If the token provided ignore the config file
         if config_path:
-            config_parser = ConfigParser(config)
-            config = config_parser.read(config_path)['DEFAULT']
-        self.INVOKE_BASE_URL = config.get("INVOKE_BASE_URL").rstrip('/')
-        self.TOKEN = token if token else self.get_token(config)
+            config_parser = ConfigParser(self.__config)
+            self.__config = config_parser.read(config_path)['DEFAULT']
+        self.INVOKE_BASE_URL = self.__config.get("INVOKE_BASE_URL").rstrip('/')
+        self.TOKEN = token if token else self.get_token()
         self.HEADERS = {'Authorization': 'Bearer {}'.format(self.TOKEN)}
 
     def __crud_records(self, record_type, verb, data=None, **kwargs):
@@ -61,16 +61,16 @@ class CumulusApi:
 
     # ============== Tokens ===============
 
-    def get_token(self, config):
+    def get_token(self):
         """
         Get Earth Data Token
         :return: Token otherwise raise exception
         """
-        ed_base_url = config.get("BASE_URL", "https://uat.urs.earthdata.nasa.gov").rstrip('/')  # Earth data base URL
-        ed_client_id = config.get("CLIENT_ID")  # Earth data client (application) id
+        ed_base_url = self.__config.get("BASE_URL", "https://uat.urs.earthdata.nasa.gov").rstrip('/')  # Earth data base URL
+        ed_client_id = self.__config.get("CLIENT_ID")  # Earth data client (application) id
         url = f"{ed_base_url}/oauth/authorize?client_id={ed_client_id}" \
               f"&redirect_uri={self.INVOKE_BASE_URL}/token&response_type=code"
-        user_name, password = config.get("USER_NAME"), config.get("USER_PASSWORD")
+        user_name, password = self.__config.get("USER_NAME"), self.__config.get("USER_PASSWORD")
         re = requests.get(url=url, auth=(user_name, password))
         error_str = "Getting the token"
         try:
@@ -334,9 +334,12 @@ class CumulusApi:
         """
         Run a rule
         :param name: rule name
-        :return:
+        :return: object
         """
-        pass
+        record_type = "rules/%s" % name
+        data = {"name": name, "action": "rerun"}
+        return self.__crud_records(record_type=record_type, data=data, verb="put")
+
 
     # ============== Stats ===============
 

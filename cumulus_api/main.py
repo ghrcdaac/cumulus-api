@@ -337,7 +337,9 @@ class CumulusApi:
         :return:
         """
         record_type = "rules/%s" % name
-        return self.__crud_records(record_type=record_type, verb="put")
+        print(record_type)
+        data = {"name": name, "action": "rerun"}
+        return self.__crud_records(record_type=record_type, data=data, verb="put")
 
 
     # ============== Stats ===============

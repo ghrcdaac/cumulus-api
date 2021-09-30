@@ -33,19 +33,28 @@ Please see examples folder
 Example of a config file passed to cumulus-api instance
 ```angular2html
 [DEFAULT]
-INVOKE_BASE_URL=************ // Cumulus archive URL
+INVOKE_BASE_URL=************       // Cumulus archive URL
 BASE_URL=************              // URS URL (https://uat.urs.earthdata.nasa.gov/)
 CLIENT_ID=************************ // URS application id
 USER_NAME=************             // URS username
 USER_PASSWORD=************         // URS password
+USE_LAUNCHPAD=*****                // set to "true" if using LAUNCHPAD anything else will use URS
+LAUNCHPAD_CERT=****                // path to LAUNCHPAD pfx file
+LAUNCHPAD_PASSPHRASE=*****         // LAUNCHPAD Passphrase
+LAUNCHPAD_URL=*****                // most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
 ```
 
 ## env.sh
 Example of setting up environment variables
 ```code
+#!/usr/bash
 export INVOKE_BASE_URL=************       // Cumulus archive URL
 export BASE_URL=************              // URS URL (https://uat.urs.earthdata.nasa.gov/)
 export CLIENT_ID=************************ // URS application id
 export USER_NAME=************             // URS username
 export USER_PASSWORD=************         // URS password
+export USE_LAUNCHPAD=*****                // set to "true" if using LAUNCHPAD anything else will use URS
+export LAUNCHPAD_CERT=****                // path to LAUNCHPAD pfx file
+export LAUNCHPAD_PASSPHRASE=*****         // LAUNCHPAD Passphrase
+export LAUNCHPAD_URL=*****                // most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
 ```

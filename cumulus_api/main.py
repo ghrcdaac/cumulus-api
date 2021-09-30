@@ -76,7 +76,7 @@ class CumulusApi:
         :return: Token otherwise raise exception
         """
         error_str = "Getting the token"
-        if config.get("USE_LAUNCHPAD"):
+        if config.get("USE_LAUNCHPAD", "false").upper() == 'TRUE':
             try:
                 backend = default_backend()
 
@@ -379,9 +379,12 @@ class CumulusApi:
         """
         Run a rule
         :param name: rule name
-        :return:
+        :return: object
         """
-        pass
+        record_type = "rules/%s" % name
+        data = {"name": name, "action": "rerun"}
+        return self.__crud_records(record_type=record_type, data=data, verb="put")
+
 
     # ============== Stats ===============
 

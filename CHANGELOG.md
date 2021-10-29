@@ -13,6 +13,26 @@ and includes an additional section for migration notes.
 - *Fixed* - Any bug fixes.
 - *Security* - Vulnerabilities fixes and changes.
 
+## [1.2.1]
+
+Update erroneous endpoints and remove deprecated Cumulus endpoints
+
+### Added
+
+- Many new ipynb examples added to examples directory for new Cumulus endpoint additions
+
+### Removed
+
+- Removed Create EMS Reports endpoint per deprecation in Cumulus v9.1.0
+
+
+### Fixed
+
+- Changed get_execution() method param to `execution_arn` instead of `execution_name`
+- Changed update_execution() method to put rather than post to endpoint.
+
+
+
 ## [1.2.0]
 
 Added launchpad integration and missing Cumulus API endpoints.
@@ -27,7 +47,7 @@ the payload data to reduce redundancies.
 ### Added
 
 - Launchpad integration for authentication bearer token added.
-- Many additional methods added to accomodate missing Cumulus API endpoints.
+- Many additional methods added to accommodate missing Cumulus API endpoints.
 
 ### Changed
 

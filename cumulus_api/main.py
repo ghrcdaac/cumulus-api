@@ -533,14 +533,14 @@ class CumulusApi:
         record_type = "executions"
         return self.__crud_records(record_type=record_type, verb="get", **kwargs)
 
-    def get_execution(self, execution_name, **kwargs):
+    def get_execution(self, execution_arn, **kwargs):
         """
         Get an execution
-        :param execution_name:
+        :param execution_arn:
         :param kwargs:
         :return:
         """
-        record_type = f"executions/{execution_name}"
+        record_type = f"executions/{execution_arn}"
         return self.__crud_records(record_type=record_type, verb="get", **kwargs)
 
     def get_execution_status(self, execution_arn):
@@ -581,7 +581,7 @@ class CumulusApi:
         :return: Request response
         """
         record_type = f"executions/{data['arn']}"
-        return self.__crud_records(record_type=record_type, verb="post", data=data)
+        return self.__crud_records(record_type=record_type, verb="put", data=data)
 
     def delete_execution(self, execution_arn):
         """
@@ -686,16 +686,6 @@ class CumulusApi:
         """
         record_type = f"reconciliationReports/{report_name}"
         return self.__crud_records(record_type=record_type, verb="delete")
-
-    # ============== EMS Reports ===============
-
-    def create_ems_report(self, data):
-        """
-        Create EMS reports and send them to EMS.
-        :return: Request response
-        """
-        record_type = "ems"
-        return self.__crud_records(record_type=record_type, verb="post", data=data)
 
     # ============== Instance Metadata ===============
 

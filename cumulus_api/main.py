@@ -314,7 +314,8 @@ class CumulusApi:
         :return:
         """
         record_type = f"granules/{granule_id}"
-        data = {"action": "reingest"} if data is None else data
+        data = dict() if data is None else data
+        data.update({"action": "reingest"})
         return self.__crud_records(record_type=record_type, data=data, verb="put")
 
     def apply_workflow_to_granule(self, granule_id, workflow_name):

@@ -2,10 +2,10 @@
 import os
 from codecs import open
 from setuptools import setup, find_packages
-import imp
+from importlib import import_module
 
 here = os.path.abspath(os.path.dirname(__file__))
-__version__ = imp.load_source('cumulus_api.version', 'cumulus_api/version.py').__version__
+__version__ = import_module('cumulus_api.version').__version__
 
 with open(os.path.join(here, 'requirements.txt'), encoding='utf-8') as f:
     reqs = f.read().split('\n')
@@ -23,10 +23,8 @@ setup(
         'Framework :: Pytest',
         'Topic :: Scientific/Engineering/Developers',
         'Intended Audience :: Developers',
-        'Intended Audience :: Developers',
         'License :: Freeware',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3+',
     ],
     packages=find_packages(exclude=['docs', 'tests*']),
     include_package_data=True,

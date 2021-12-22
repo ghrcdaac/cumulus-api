@@ -70,48 +70,54 @@ class CumulusApi:
 
     # ============== Tokens ===============
 
-    def get_token(self, config):
+    
+    def get_token_launchpad(self, config):
+        """
+        Get token using launchpad authentication 
+        return: cumulus token
+        """
+        error_str = "Getting the token (Launchpad)"
+        try:
+            backend = default_backend()
+
+            with open(config.get("LAUNCHPAD_CERT"), "rb") as pkcs12_file:
+                pkcs12_data = pkcs12_file.read()
+
+            pkcs12_password_bytes = config.get("LAUNCHPAD_PASSPHRASE").encode()
+
+            pycaP12 = load_key_and_certificates(
+                pkcs12_data, pkcs12_password_bytes, backend
+            )
+
+            cert_bytes = pycaP12[1].public_bytes(Encoding.DER)
+            pk_bytes = pycaP12[0].private_bytes(
+                Encoding.DER, PrivateFormat.PKCS8, NoEncryption()
+            )
+
+            adapter = X509Adapter(
+                max_retries=3,
+                cert_bytes=cert_bytes,
+                pk_bytes=pk_bytes,
+                encoding=Encoding.DER,
+            )
+            session = requests.Session()
+            session.mount("https://", adapter)
+
+            r = session.get(config.get("LAUNCHPAD_URL"))
+            response = r.json()
+            token = response["sm_token"]
+            return token
+        except Exception as ex:
+            error_str = f"{error_str} {str(ex)}"
+            logging.error(error_str)
+            raise Exception(error_str)
+
+    def get_token_earthdata(self, config):
         """
         Get Earth Data Token
         :return: Token otherwise raise exception
         """
-        error_str = "Getting the token"
-        if config.get("USE_LAUNCHPAD", "false").upper() == 'TRUE':
-            try:
-                backend = default_backend()
-
-                with open(config.get("LAUNCHPAD_CERT"), "rb") as pkcs12_file:
-                    pkcs12_data = pkcs12_file.read()
-
-                pkcs12_password_bytes = config.get("LAUNCHPAD_PASSPHRASE").encode()
-
-                pycaP12 = load_key_and_certificates(
-                    pkcs12_data, pkcs12_password_bytes, backend
-                )
-
-                cert_bytes = pycaP12[1].public_bytes(Encoding.DER)
-                pk_bytes = pycaP12[0].private_bytes(
-                    Encoding.DER, PrivateFormat.PKCS8, NoEncryption()
-                )
-
-                adapter = X509Adapter(
-                    max_retries=3,
-                    cert_bytes=cert_bytes,
-                    pk_bytes=pk_bytes,
-                    encoding=Encoding.DER,
-                )
-                session = requests.Session()
-                session.mount("https://", adapter)
-
-                r = session.get(config.get("LAUNCHPAD_URL"))
-                response = r.json()
-                token = response["sm_token"]
-                return token
-            except Exception as ex:
-                error_str = f"{error_str} {str(ex)}"
-                logging.error(error_str)
-                raise error_str
-
+        error_str = "Getting the token (ED)"
         # Earth data base URL
         ed_base_url = config.get("BASE_URL", "https://uat.urs.earthdata.nasa.gov").rstrip('/')
         # Earth data client (application) id
@@ -129,7 +135,19 @@ class CumulusApi:
         except Exception as ex:
             error_str = f"{error_str} {str(ex)}"
             logging.error(error_str)
-            raise error_str
+            raise Exception(error_str)
+
+    
+    def get_token(self, config):
+        """
+        Get Earth Data Token
+        :return: Token otherwise raise exception
+        """
+        
+        if config.get("USE_LAUNCHPAD", "false").upper() == 'TRUE':
+            return self.get_token_launchpad(config=config)
+        return self.get_token_earthdata(config=config)
+
 
     def refresh_token(self):
         """

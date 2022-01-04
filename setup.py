@@ -5,7 +5,10 @@ from setuptools import setup, find_packages
 from importlib import import_module
 
 here = os.path.abspath(os.path.dirname(__file__))
-__version__ = import_module('cumulus_api.version').__version__
+try:
+    __version__ = import_module('cumulus_api.version').__version__
+except:
+    __version__ = "v1.1.1"
 
 with open(os.path.join(here, 'requirements.txt'), encoding='utf-8') as f:
     reqs = f.read().split('\n')

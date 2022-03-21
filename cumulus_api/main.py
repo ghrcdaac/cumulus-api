@@ -1,6 +1,8 @@
 import requests
 import logging
+import boto3
 import os
+import re
 from configparser import ConfigParser
 from cryptography.hazmat.primitives.serialization.pkcs12 import (
     load_key_and_certificates,
@@ -70,20 +72,67 @@ class CumulusApi:
 
     # ============== Tokens ===============
 
-    
+    def get_launchpad_certificate_body_s3(self, s3_certificate_path):
+        """
+
+        :param s3_certificate_path:
+        :type s3_certificate_path:
+        :param config:
+        :type config:
+        :return:
+        :rtype:
+        """
+        groups = re.match("s3://(((?!\/).)+)/(.*)", s3_certificate_path)
+        if not groups:
+            logging.error("S3 path should be of a format s3://<bucket_name>/path")
+            raise Exception(f"{s3_certificate_path} is not of the format s3://<bucket_name>/path")
+        s3 = boto3.resource('s3')
+        bucket_name, certificate_path = groups[1], groups[3]
+        data = s3.get_object(Bucket=bucket_name, Key=certificate_path)
+        return data['Body'].read()
+
+    def get_launchpad_certificate_body_file_system(self, certificate_path):
+        """
+
+        :param config:
+        :type config:
+        :return:
+        :rtype:
+        """
+        with open(certificate_path, "rb") as pkcs12_file:
+            pkcs12_data = pkcs12_file.read()
+        return pkcs12_data
+
+    def get_launchpad_pass_phrase_secret_manager(self, secret_manager_id, region_name="us-west-2"):
+        """
+
+        :param config:
+        :type config:
+        :return:
+        :rtype:
+        """
+        client = boto3.client('secretsmanager', region_name="us-west-2")
+        response = client.get_secret_value(SecretId=secret_manager_id)
+        return response['SecretString']
+
     def get_token_launchpad(self, config):
         """
-        Get token using launchpad authentication 
+        Get token using launchpad authentication
         return: cumulus token
         """
         error_str = "Getting the token (Launchpad)"
+
         try:
             backend = default_backend()
-
-            with open(config.get("LAUNCHPAD_CERT"), "rb") as pkcs12_file:
-                pkcs12_data = pkcs12_file.read()
-
-            pkcs12_password_bytes = config.get("LAUNCHPAD_PASSPHRASE").encode()
+            if config.get("FS_LAUNCHPAD_CERT"):
+                pkcs12_data = get_launchpad_certificate_body_file_system(config.get("FS_LAUNCHPAD_CERT"))
+            if config.get("S3URI_LAUNCHPAD_CERT"):
+                pkcs12_data = get_launchpad_certificate_body_s3(config.get("S3_LAUNCHPAD_CERT"))
+            pass_phrase_secret_manager_id = config.get("LAUNCHPAD_PASSPHRASE_SECRET_NAME")
+            if pass_phrase_secret_manager_id:
+                pkcs12_password_bytes =get_launchpad_pass_phrase_secret_manager(pass_phrase_secret_manager_id).encode()
+            elif config.get("LAUNCHPAD_PASSPHRASE"):
+                pkcs12_password_bytes = config.get("LAUNCHPAD_PASSPHRASE").encode()
 
             pycaP12 = load_key_and_certificates(
                 pkcs12_data, pkcs12_password_bytes, backend
@@ -137,17 +186,15 @@ class CumulusApi:
             logging.error(error_str)
             raise Exception(error_str)
 
-    
     def get_token(self, config):
         """
         Get Earth Data Token
         :return: Token otherwise raise exception
         """
-        
+
         if config.get("USE_LAUNCHPAD", "false").upper() == 'TRUE':
             return self.get_token_launchpad(config=config)
         return self.get_token_earthdata(config=config)
-
 
     def refresh_token(self):
         """
@@ -796,6 +843,22 @@ class CumulusApi:
         """
         record_type = "migrationCounts"
         return self.__crud_records(record_type=record_type, verb="post", **kwargs)
+
+    # ============== Dead Letter Archive ===============
+    def recover_cumulus_messages(self, bucket: str, path: str) -> dict:
+        """
+
+        :param bucket: bucket name for the dead letter queue location
+        :type bucket: string
+        :param path: Path to dead letter queue records
+        :type path: string
+        :return: Response of the execution
+        :rtype: python dictionary
+        """
+        data = locals()
+        record_type = "deadLetterArchive/recoverCumulusMessages"
+        data.pop('self', None)
+        return self.__crud_records(record_type=record_type, verb="post", data=data)
 
 
 if __name__ == "__main__":

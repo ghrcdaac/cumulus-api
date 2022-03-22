@@ -32,9 +32,13 @@ class CumulusApi:
         # If the token provided ignore the config file
         if config_path:
             config_parser = ConfigParser(config)
-            config = config_parser.read(config_path)['DEFAULT']
-        self.INVOKE_BASE_URL = config.get("INVOKE_BASE_URL").rstrip('/')
-        self.TOKEN = token if token else self.get_token(config)
+            config_parser.read(config_path)
+            config = config_parser['DEFAULT']
+        self.config = config
+        boto3.setup_default_session(profile_name=self.config.get('AWS_PROFILE'),
+                                    region_name=self.config.get('AWS_REGION', "us-west-2"))
+        self.INVOKE_BASE_URL = self.config.get("INVOKE_BASE_URL").rstrip('/')
+        self.TOKEN = token if token else self.get_token()
         self.HEADERS = {'Authorization': 'Bearer {}'.format(self.TOKEN)}
 
     def __crud_records(self, record_type, verb, data=None, **kwargs):
@@ -88,8 +92,8 @@ class CumulusApi:
             raise Exception(f"{s3_certificate_path} is not of the format s3://<bucket_name>/path")
         s3 = boto3.resource('s3')
         bucket_name, certificate_path = groups[1], groups[3]
-        data = s3.get_object(Bucket=bucket_name, Key=certificate_path)
-        return data['Body'].read()
+        obj = s3.Object(bucket_name=bucket_name, key=certificate_path)
+        return obj.get()['Body'].read()
 
     def get_launchpad_certificate_body_file_system(self, certificate_path):
         """
@@ -103,7 +107,7 @@ class CumulusApi:
             pkcs12_data = pkcs12_file.read()
         return pkcs12_data
 
-    def get_launchpad_pass_phrase_secret_manager(self, secret_manager_id, region_name="us-west-2"):
+    def get_launchpad_pass_phrase_secret_manager(self, secret_manager_id):
         """
 
         :param config:
@@ -111,26 +115,29 @@ class CumulusApi:
         :return:
         :rtype:
         """
-        client = boto3.client('secretsmanager', region_name="us-west-2")
+        client = boto3.client('secretsmanager')
         response = client.get_secret_value(SecretId=secret_manager_id)
         return response['SecretString']
 
-    def get_token_launchpad(self, config):
+    def get_token_launchpad(self):
         """
         Get token using launchpad authentication
         return: cumulus token
         """
         error_str = "Getting the token (Launchpad)"
-
+        config = self.config
         try:
             backend = default_backend()
+            pkcs12_data = ""
+            pkcs12_password_bytes = b""
             if config.get("FS_LAUNCHPAD_CERT"):
-                pkcs12_data = get_launchpad_certificate_body_file_system(config.get("FS_LAUNCHPAD_CERT"))
+                pkcs12_data = self.get_launchpad_certificate_body_file_system(config.get("FS_LAUNCHPAD_CERT"))
             if config.get("S3URI_LAUNCHPAD_CERT"):
-                pkcs12_data = get_launchpad_certificate_body_s3(config.get("S3_LAUNCHPAD_CERT"))
+                pkcs12_data = self.get_launchpad_certificate_body_s3(config.get("S3URI_LAUNCHPAD_CERT"))
             pass_phrase_secret_manager_id = config.get("LAUNCHPAD_PASSPHRASE_SECRET_NAME")
             if pass_phrase_secret_manager_id:
-                pkcs12_password_bytes =get_launchpad_pass_phrase_secret_manager(pass_phrase_secret_manager_id).encode()
+                pkcs12_password_bytes = self.get_launchpad_pass_phrase_secret_manager(
+                    pass_phrase_secret_manager_id).encode()
             elif config.get("LAUNCHPAD_PASSPHRASE"):
                 pkcs12_password_bytes = config.get("LAUNCHPAD_PASSPHRASE").encode()
 
@@ -161,40 +168,12 @@ class CumulusApi:
             logging.error(error_str)
             raise Exception(error_str)
 
-    def get_token_earthdata(self, config):
+    def get_token(self):
         """
         Get Earth Data Token
         :return: Token otherwise raise exception
         """
-        error_str = "Getting the token (ED)"
-        # Earth data base URL
-        ed_base_url = config.get("BASE_URL", "https://uat.urs.earthdata.nasa.gov").rstrip('/')
-        # Earth data client (application) id
-        ed_client_id = config.get("CLIENT_ID")
-        url = f"{ed_base_url}/oauth/authorize?client_id={ed_client_id}" \
-              f"&redirect_uri={self.INVOKE_BASE_URL}/token&response_type=code"
-        user_name, password = config.get("USER_NAME"), config.get("USER_PASSWORD")
-        re = requests.get(url=url, auth=(user_name, password))
-        try:
-            data = re.json()
-            if "time out" in data['message']:
-                logging.error(data['message'])
-                error_str = f"{error_str}: {data['message']}"
-            return data['message']['token']
-        except Exception as ex:
-            error_str = f"{error_str} {str(ex)}"
-            logging.error(error_str)
-            raise Exception(error_str)
-
-    def get_token(self, config):
-        """
-        Get Earth Data Token
-        :return: Token otherwise raise exception
-        """
-
-        if config.get("USE_LAUNCHPAD", "false").upper() == 'TRUE':
-            return self.get_token_launchpad(config=config)
-        return self.get_token_earthdata(config=config)
+        return self.get_token_launchpad()
 
     def refresh_token(self):
         """
@@ -202,9 +181,10 @@ class CumulusApi:
         The token will be returned as a JWT (JSON Web Token).
         :return: Refreshed token
         """
-        data = {"token": self.TOKEN}
-        refreshed_token = self.__crud_records(record_type="refresh", verb="post", data=data)
-        self.TOKEN = refreshed_token.get('token')
+        # data = {"token": self.TOKEN}
+        # refreshed_token = self.__crud_records(record_type="refresh", verb="post", data=data)
+        self.TOKEN = self.get_token()
+        # refreshed_token.get('token')
         return self.TOKEN
 
     def delete_token(self):

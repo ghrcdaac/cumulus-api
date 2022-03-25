@@ -840,7 +840,7 @@ class CumulusApi:
         data = {
             "bucket": bucket
         }
-        if pth:
+        if path:
             data['path'] = path
         record_type = "deadLetterArchive/recoverCumulusMessages"
         return self.__crud_records(record_type=record_type, verb="post", data=data)

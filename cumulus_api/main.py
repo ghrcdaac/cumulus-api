@@ -179,13 +179,15 @@ class CumulusApi:
         """
         Refreshes a bearer token received from oAuth with Earthdata Login service.
         The token will be returned as a JWT (JSON Web Token).
-        :return: Refreshed token
+        :return: True if the token is refreshed
         """
         # data = {"token": self.TOKEN}
         # refreshed_token = self.__crud_records(record_type="refresh", verb="post", data=data)
         self.TOKEN = self.get_token()
+        self.HEADERS = {'Authorization': 'Bearer {}'.format(self.TOKEN)}
+
         # refreshed_token.get('token')
-        return self.TOKEN
+        return True
 
     def delete_token(self):
         """
@@ -825,7 +827,7 @@ class CumulusApi:
         return self.__crud_records(record_type=record_type, verb="post", **kwargs)
 
     # ============== Dead Letter Archive ===============
-    def recover_cumulus_messages(self, bucket: str, path: str) -> dict:
+    def recover_cumulus_messages(self, bucket: str, path: str = None) -> dict:
         """
 
         :param bucket: bucket name for the dead letter queue location
@@ -835,9 +837,12 @@ class CumulusApi:
         :return: Response of the execution
         :rtype: python dictionary
         """
-        data = locals()
+        data = {
+            "bucket": bucket
+        }
+        if pth:
+            data['path'] = path
         record_type = "deadLetterArchive/recoverCumulusMessages"
-        data.pop('self', None)
         return self.__crud_records(record_type=record_type, verb="post", data=data)
 
 

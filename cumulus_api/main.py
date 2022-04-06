@@ -827,7 +827,7 @@ class CumulusApi:
         return self.__crud_records(record_type=record_type, verb="post", **kwargs)
 
     # ============== Dead Letter Archive ===============
-    def recover_cumulus_messages(self, bucket: str, path: str = None) -> dict:
+    def recover_cumulus_messages(self, bucket: str = None, path: str = None) -> dict:
         """
 
         :param bucket: bucket name for the dead letter queue location
@@ -837,11 +837,11 @@ class CumulusApi:
         :return: Response of the execution
         :rtype: python dictionary
         """
-        data = {
-            "bucket": bucket
-        }
+        data = {} if [bucket, path] else None
         if path:
             data['path'] = path
+        if bucket:
+            data['bucket'] = bucket
         record_type = "deadLetterArchive/recoverCumulusMessages"
         return self.__crud_records(record_type=record_type, verb="post", data=data)
 

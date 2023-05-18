@@ -1,5 +1,6 @@
 
 import logging
+import os
 import re
 from configparser import SectionProxy
 from typing import Dict, Union
@@ -16,20 +17,24 @@ from requests_toolbelt.adapters.x509 import X509Adapter
 
 
 class CumulusToken:
-    def __init__(self, config: Union[SectionProxy, dict]):
+    def __init__(self, use_os_env=False, config: Union[SectionProxy, dict] = None):
         """
         :param config: PyLOT Configuration
         """
         self.config = config
-        aws_profile: Union[str, None] = self.config.get('AWS_PROFILE')
-        aws_region: str = self.config.get('AWS_REGION', 'us-west-2')
+        if use_os_env:
+            aws_profile = os.getenv('AWS_PROFILE')
+            aws_region = os.getenv('AWS_REGION', 'us-west-2')
+        else:
+            aws_profile: Union[str, None] = self.config.get('AWS_PROFILE')
+            aws_region: str = self.config.get('AWS_REGION', 'us-west-2')
+
         aws_services = AWS_Services(aws_profile=aws_profile, aws_region=aws_region)
         self.s3_resource = aws_services.get_s3_resource()
         self.secretmanager_client = aws_services.get_secretmanager_client()
 
     def get_s3_object_body(self, bucket_name, prefix):
         """
-
         :return:
         :rtype:
         """

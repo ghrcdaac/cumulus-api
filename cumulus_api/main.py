@@ -1,45 +1,39 @@
-import requests
+import json
 import logging
-import boto3
 import os
-import re
-from configparser import ConfigParser
-from cryptography.hazmat.primitives.serialization.pkcs12 import (
-    load_key_and_certificates,
-)
-from cryptography.hazmat.primitives.serialization import (
-    Encoding,
-    PrivateFormat,
-    NoEncryption,
-)
-from cryptography.hazmat.backends import default_backend
-from requests_toolbelt.adapters.x509 import X509Adapter
+from configparser import ConfigParser, SectionProxy
+from json.decoder import JSONDecodeError
+from typing import Union
+
+import requests
+
+from .cumulus_token import CumulusToken
 
 
+# pylint: disable=too-many-public-methods
 class CumulusApi:
-    def __init__(self, os_env=True, config_path=None, token=None):
+    def __init__(self, use_os_env: bool = True, config_path: str = None, token: str = None):
         """
         Initiate cumulus API instance, by default it reads from OS environment
         :param config_path: absolute or relative path to config file
         :param token: earthdata token
         """
         # The user should provide the config file or the token
-        if {None, False} == {config_path, token, os_env}:
+        if {None, False} == {config_path, token, use_os_env}:
             error = "Config file path, environment variables or token should be supplied"
             logging.error(error)
             raise ValueError(error)
-        config = os.environ
+        config: Union[SectionProxy, dict] = os.environ.copy()
         # If the token provided ignore the config file
         if config_path:
             config_parser = ConfigParser(config)
             config_parser.read(config_path)
             config = config_parser['DEFAULT']
         self.config = config
-        boto3.setup_default_session(profile_name=self.config.get('AWS_PROFILE'),
-                                    region_name=self.config.get('AWS_REGION', "us-west-2"))
-        self.INVOKE_BASE_URL = self.config.get("INVOKE_BASE_URL").rstrip('/')
-        self.TOKEN = token if token else self.get_token()
-        self.HEADERS = {'Authorization': 'Bearer {}'.format(self.TOKEN)}
+        self.INVOKE_BASE_URL = self.config["INVOKE_BASE_URL"].rstrip('/')
+        self.cumulus_token = CumulusToken(config=config)
+        self.TOKEN = token if token else self.cumulus_token.get_token()
+        self.HEADERS = {'Authorization': f'Bearer {self.TOKEN}'}
 
     def __crud_records(self, record_type, verb, data=None, **kwargs):
         """
@@ -48,22 +42,23 @@ class CumulusApi:
         :param data: json data to be ingested
         :return: False in case of error
         """
-        allowed_verbs = ['GET', 'POST', 'PUT', 'DELETE']
+        allowed_verbs = {'GET', 'PATCH', 'POST', 'PUT', 'DELETE'}
         if verb.upper() not in allowed_verbs:
-            return "{} is not a supported http request".format(verb)
+            return f"{verb} is not a supported http request"
         url = f"{self.INVOKE_BASE_URL}/v1/{record_type}"
         and_sign = ""
         query = ""
-        for ele in kwargs.keys():
-            query = "{}{}{}={}".format(query, and_sign, ele, kwargs[ele])
+        for key, value in kwargs.items():
+            query = f"{query}{and_sign}{key}={value}"
             and_sign = "&"
         if kwargs:
-            url = "{}?{}".format(url, query)
+            url = f"{url}?{query}"
         re = getattr(requests, verb.lower())(url=url, json=data, headers=self.HEADERS)
         try:
             return re.json()
-        except Exception as e:
-            logging.error("%s" % str(e))
+        except JSONDecodeError as err:
+
+            logging.error("Cumulus CRUD: %s", err)
             return re.content
 
     # ============== Version ===============
@@ -74,107 +69,7 @@ class CumulusApi:
         """
         return self.__crud_records(record_type="version", verb="get")
 
-    # ============== Tokens ===============
-
-    def get_launchpad_certificate_body_s3(self, s3_certificate_path):
-        """
-
-        :param s3_certificate_path:
-        :type s3_certificate_path:
-        :param config:
-        :type config:
-        :return:
-        :rtype:
-        """
-        groups = re.match("s3://(((?!\/).)+)/(.*)", s3_certificate_path)
-        if not groups:
-            logging.error("S3 path should be of a format s3://<bucket_name>/path")
-            raise Exception(f"{s3_certificate_path} is not of the format s3://<bucket_name>/path")
-        s3 = boto3.resource('s3')
-        bucket_name, certificate_path = groups[1], groups[3]
-        obj = s3.Object(bucket_name=bucket_name, key=certificate_path)
-        return obj.get()['Body'].read()
-
-    def get_launchpad_certificate_body_file_system(self, certificate_path):
-        """
-
-        :param config:
-        :type config:
-        :return:
-        :rtype:
-        """
-        with open(certificate_path, "rb") as pkcs12_file:
-            pkcs12_data = pkcs12_file.read()
-        return pkcs12_data
-
-    def get_launchpad_pass_phrase_secret_manager(self, secret_manager_id):
-        """
-
-        :param config:
-        :type config:
-        :return:
-        :rtype:
-        """
-        client = boto3.client('secretsmanager')
-        response = client.get_secret_value(SecretId=secret_manager_id)
-        return response['SecretString']
-
-    def get_token_launchpad(self):
-        """
-        Get token using launchpad authentication
-        return: cumulus token
-        """
-        error_str = "Getting the token (Launchpad)"
-        config = self.config
-        try:
-            backend = default_backend()
-            pkcs12_data = ""
-            pkcs12_password_bytes = b""
-            if config.get("FS_LAUNCHPAD_CERT"):
-                pkcs12_data = self.get_launchpad_certificate_body_file_system(config.get("FS_LAUNCHPAD_CERT"))
-            if config.get("S3URI_LAUNCHPAD_CERT"):
-                pkcs12_data = self.get_launchpad_certificate_body_s3(config.get("S3URI_LAUNCHPAD_CERT"))
-            pass_phrase_secret_manager_id = config.get("LAUNCHPAD_PASSPHRASE_SECRET_NAME")
-            if pass_phrase_secret_manager_id:
-                pkcs12_password_bytes = self.get_launchpad_pass_phrase_secret_manager(
-                    pass_phrase_secret_manager_id).encode()
-            elif config.get("LAUNCHPAD_PASSPHRASE"):
-                pkcs12_password_bytes = config.get("LAUNCHPAD_PASSPHRASE").encode()
-
-            pycaP12 = load_key_and_certificates(
-                pkcs12_data, pkcs12_password_bytes, backend
-            )
-
-            cert_bytes = pycaP12[1].public_bytes(Encoding.DER)
-            pk_bytes = pycaP12[0].private_bytes(
-                Encoding.DER, PrivateFormat.PKCS8, NoEncryption()
-            )
-
-            adapter = X509Adapter(
-                max_retries=3,
-                cert_bytes=cert_bytes,
-                pk_bytes=pk_bytes,
-                encoding=Encoding.DER,
-            )
-            session = requests.Session()
-            session.mount("https://", adapter)
-
-            r = session.get(config.get("LAUNCHPAD_URL"))
-            response = r.json()
-            token = response["sm_token"]
-            return token
-        except Exception as ex:
-            error_str = f"{error_str} {str(ex)}"
-            logging.error(error_str)
-            raise Exception(error_str)
-
-    def get_token(self):
-        """
-        Get Earth Data Token
-        :return: Token otherwise raise exception
-        """
-        return self.get_token_launchpad()
-
+    # ============== Token ==================
     def refresh_token(self):
         """
         Refreshes a bearer token received from oAuth with Earthdata Login service.
@@ -183,8 +78,8 @@ class CumulusApi:
         """
         # data = {"token": self.TOKEN}
         # refreshed_token = self.__crud_records(record_type="refresh", verb="post", data=data)
-        self.TOKEN = self.get_token()
-        self.HEADERS = {'Authorization': 'Bearer {}'.format(self.TOKEN)}
+        self.TOKEN = self.cumulus_token.get_token()
+        self.HEADERS = {'Authorization': f'Bearer {self.TOKEN}'}
 
         # refreshed_token.get('token')
         return True
@@ -204,7 +99,7 @@ class CumulusApi:
     def list_providers(self, **kwargs):
         """
         List granules in the Cumulus system
-        :paramkwargs:
+        :param kwargs: cumulus query strings and parameters
         :return:
         """
         record_type = "providers"
@@ -213,8 +108,8 @@ class CumulusApi:
     def get_provider(self, provider_id, **kwargs):
         """
         Get a provider
-        :param provider_id:
-        :paramkwargs:
+        :param provider_id: cumulus provider id
+        :param kwargs: cumulus query strings and parameters
         :return:
         """
         record_type = f"providers/{provider_id}"
@@ -223,7 +118,7 @@ class CumulusApi:
     def create_provider(self, data):
         """
         Create a New provider
-        :param data: Json data of the collection to be ingested
+        :param data: json object containing granule definition
         :return: request response
         """
         record_type = "providers"
@@ -232,7 +127,7 @@ class CumulusApi:
     def update_provider(self, data):
         """
         Update values for a provider
-        :param data: provider data with updated fields,
+        :param data: json object containing provider definition
         :return: message of success or raise error
         """
         record_type = f"providers/{data['id']}"
@@ -241,7 +136,7 @@ class CumulusApi:
     def delete_provider(self, provider_id):
         """
         Delete a provider
-        :param provider_id: Provider id
+        :param provider_id: cumulus provider id
         :return:
         """
         record_type = f"providers/{provider_id}"
@@ -252,6 +147,7 @@ class CumulusApi:
     def list_collections(self, **kwargs):
         """
         List collections in the Cumulus system
+        :param kwargs: cumulus query strings and parameters
         :return: Request response
         """
         record_type = "collections"
@@ -260,6 +156,7 @@ class CumulusApi:
     def list_collections_with_active_granules(self, **kwargs):
         """
         List collections in the Cumulus system that have active associated granules.
+        :param kwargs: cumulus query strings and parameters
         :return: Request response
         """
         record_type = "collections/active"
@@ -268,9 +165,9 @@ class CumulusApi:
     def get_collection(self, collection_name, collection_version, **kwargs):
         """
         Get a collection
-        :param collection_name:
-        :param collection_version:
-        :param kwargs:
+        :param collection_name: cumulus collection name
+        :param collection_version: cumulus collection version
+        :param kwargs: cumulus query strings and parameters
         :return:
         """
         record_type = f"collections/{collection_name}/{collection_version}"
@@ -279,7 +176,7 @@ class CumulusApi:
     def create_collection(self, data):
         """
         Create a New collection
-        :param data: Json data of the collection to be ingested
+        :param data: json object containing a collection definition
         :return: request response
         """
         record_type = "collections"
@@ -288,7 +185,7 @@ class CumulusApi:
     def update_collection(self, data):
         """
         Update values for a collection
-        :param data: Can be the whole collection object or just a subset of fields,
+        :param data: json object containing updated collection definition
         the ones that are being updated.
         :return:
         """
@@ -299,8 +196,8 @@ class CumulusApi:
         """
         Delete a collection from Cumulus, but not from CMR.
         All related granules in Cumulus must have already been deleted from Cumulus.
-        :param collection_name: Collection name
-        :param collection_version: Collection version
+        :param collection_name: cumulus collection name
+        :param collection_version: cumulus collection version
         :return:
         """
         record_type = f"collections/{collection_name}/{collection_version}"
@@ -311,7 +208,7 @@ class CumulusApi:
     def list_granules(self, **kwargs):
         """
         List granules in the Cumulus system
-        :paramkwargs:
+        :param kwargs: cumulus query strings and parameters
         :return:
         """
         record_type = "granules"
@@ -320,8 +217,8 @@ class CumulusApi:
     def get_granule(self, granule_id, **kwargs):
         """
         Get a granule
-        :param granule_id:
-        :param kwargs:
+        :param granule_id: cumulus granule id
+        :param kwargs: cumulus query strings and parameters
         :return:
         """
         record_type = f"granules/{granule_id}"
@@ -330,6 +227,7 @@ class CumulusApi:
     def create_granule(self, data):
         """
         Create a granule
+        :param data: json object containing granule definition
         :return: Request response
         """
         record_type = "granules"
@@ -338,14 +236,16 @@ class CumulusApi:
     def update_granule(self, data):
         """
         Updates a granule
+        :param data: json object containing updated granule definition
         :return: Request response
         """
         record_type = f"granules/{data['granuleId']}"
-        return self.__crud_records(record_type=record_type, verb="put", data=data)
+        return self.__crud_records(record_type=record_type, verb="patch", data=data)
 
     def associate_execution(self, data):
         """
         Associate an execution with a granule
+        :param data: json object containing execution definition
         :return: Request response
         """
         record_type = f"granules/{data['granuleId']}/executions"
@@ -356,12 +256,12 @@ class CumulusApi:
         Reingest a granule. This causes the granule to re-download to Cumulus from source,
         and begin processing from scratch. Reingesting a granule will overwrite existing
         granule files.
-        :param granule_id: GranuleId
-        :param data: response request parameters
+        :param granule_id: cumulus granule id
+        :param data: json object containing reingest definition
         :return:
         """
         record_type = f"granules/{granule_id}"
-        data = dict() if data is None else data
+        data = {} if data is None else data
         data.update({"action": "reingest"})
         return self.__crud_records(record_type=record_type, data=data, verb="put")
 
@@ -369,6 +269,8 @@ class CumulusApi:
         """
         Apply the named workflow to the granule. Workflow input will be built from template
         and provided entire Cumulus granule record as payload.
+        :param granule_id: cumulus granule id
+        :param workflow_name: cumulus workflow name
         :return: status message
         """
         record_type = f"granules/{granule_id}"
@@ -379,8 +281,8 @@ class CumulusApi:
         """
         Move a granule from one location on S3 to another. Individual files are moved to
         specific locations by using a regex that matches their filenames.
-        :param granule_id: granuleId
-        :param regex: granule regex
+        :param granule_id: cumulus granule id
+        :param regex: regex to match granule names to move
         :param bucket: bucket where the granule is located
         :param file_path: new file path
         :return:
@@ -393,7 +295,7 @@ class CumulusApi:
     def remove_granule_from_cmr(self, granule_id):
         """
         Remove a Cumulus granule from CMR.
-        :param granule_id: granuleId
+        :param granule_id: cumulus granule id
         :return:
         """
         record_type = f"granules/{granule_id}"
@@ -415,12 +317,15 @@ class CumulusApi:
         :param data:
         :return:
         """
-        record_type = f"granules/bulk"
+        record_type = "granules/bulk"
         return self.__crud_records(record_type=record_type, data=data, verb="post")
 
     def bulk_delete(self, data):
         """
         Bulk delete the provided granules
+        :param data: format: https://nasa.github.io/cumulus-api/#bulk-delete
+        {forceRemoveFromCmr: true/false,
+        }
         :return: Request response
         """
         record_type = "granules/bulkDelete"
@@ -439,6 +344,7 @@ class CumulusApi:
     def list_pdrs(self, **kwargs):
         """
         List PDRs in the Cumulus system.
+        :param kwargs: Query terms in the form of key=value
         :return: Request response
         """
         record_type = "pdrs"
@@ -448,7 +354,7 @@ class CumulusApi:
         """
         Get a pdr
         :param pdr_name:
-        :param kwargs:
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = f"pdrs/{pdr_name}"
@@ -467,6 +373,7 @@ class CumulusApi:
     def list_rules(self, **kwargs):
         """
         List rules in the Cumulus system.
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = "rules"
@@ -476,7 +383,7 @@ class CumulusApi:
         """
         Get a rule
         :param rule_name:
-        :param kwargs:
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = f"rules/{rule_name}"
@@ -533,7 +440,7 @@ class CumulusApi:
     def get_stats_aggregate(self, **kwargs):
         """
         Count the value frequencies for a given field, for a given type of record in Cumulus
-        :paramkwargs: Query required by cumulus api
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = "stats/aggregate"
@@ -545,7 +452,7 @@ class CumulusApi:
         """
         List processing logs from the Cumulus engine. A log's level field may be either info or
         error.
-        :paramkwargs: Query required by cumulus api
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = "logs"
@@ -555,7 +462,7 @@ class CumulusApi:
         """
         Get a log
         :param execution_name:
-        :param kwargs:
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = f"logs/{execution_name}"
@@ -576,6 +483,7 @@ class CumulusApi:
     def list_executions(self, **kwargs):
         """
         List executions in the Cumulus system.
+        :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
         record_type = "executions"
@@ -585,7 +493,7 @@ class CumulusApi:
         """
         Get an execution
         :param execution_arn:
-        :param kwargs:
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = f"executions/{execution_arn}"
@@ -602,6 +510,7 @@ class CumulusApi:
     def search_executions_by_granules(self, data, **kwargs):
         """
         Return executions associated with specific granules
+        :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
         record_type = "executions/search-by-granules"
@@ -610,6 +519,7 @@ class CumulusApi:
     def search_workflows_by_granules(self, data, **kwargs):
         """
         Return the workflows that have run on specific granules
+        :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
         record_type = "executions/workflows-by-granules"
@@ -644,7 +554,7 @@ class CumulusApi:
     def list_workflows(self, **kwargs):
         """
         List workflows
-        :paramkwargs:
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = "workflows"
@@ -653,7 +563,7 @@ class CumulusApi:
     def get_workflow(self, workflow_name, **kwargs):
         """
         List workflows
-        :paramkwargs:
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = f"workflows/{workflow_name}"
@@ -664,6 +574,7 @@ class CumulusApi:
     def list_async_operations(self, **kwargs):
         """
         List async operations in the Cumulus system.
+        :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
         record_type = "asyncOperations"
@@ -673,7 +584,7 @@ class CumulusApi:
         """
         Get an async operation
         :param operation_id:
-        :param kwargs:
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = f"asyncOperations/{operation_id}"
@@ -704,6 +615,7 @@ class CumulusApi:
     def list_reconciliation_reports(self, **kwargs):
         """
         List reconciliation reports in the Cumulus system.
+        :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
         record_type = "reconciliationReports"
@@ -713,7 +625,7 @@ class CumulusApi:
         """
         Get a reconciliation report
         :param report_name:
-        :param kwargs:
+        :param kwargs: Cumulus query strings and parameters
         :return:
         """
         record_type = f"reconciliationReports/{report_name}"
@@ -722,6 +634,7 @@ class CumulusApi:
     def create_reconciliation_report(self, **kwargs):
         """
         Create a new reconciliation report.
+        :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
         record_type = "reconciliationReports"
@@ -750,6 +663,7 @@ class CumulusApi:
     def reindex_elasticsearch(self, **kwargs):
         """
         Create a new index and reindexes the source index to the new, destination index
+        :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
         record_type = "elasticsearch/reindex"
@@ -769,11 +683,12 @@ class CumulusApi:
         :return: Request response
         """
         record_type = "elasticsearch/change-index"
-        return self.__crud_records(record_type=record_type, verb="post", data=data)
+        return self.__crud_records(record_type=record_type, verb="put", data=data)
 
     def reindex_elasticsearh_from_database(self, **kwargs):
         """
         Reindex your data from the database
+        :param kwargs: cumulus query strings and parameters
         :return: Request response
         """
         record_type = "elasticsearch/index-from-database"
@@ -807,13 +722,21 @@ class CumulusApi:
 
     # ============== ORCA ===============
 
-    def list_orca_recovery_status(self, **kwargs):
-        """
-        List ORCA recovery request status.
-        :return: Request response
-        """
-        record_type = "orca/recovery"
-        return self.__crud_records(record_type=record_type, verb="get", **kwargs)
+    # def list_orca_recovery_status(self, **kwargs):
+    #     """
+    #     List ORCA recovery request status.
+    #     :return: Request response
+    #     """
+    #     record_type = "orca/recovery"
+    #     return self.__crud_records(record_type=record_type, verb="get", **kwargs)
+    #
+    # def post_orca(self, **kwargs):
+    #     """
+    #     List ORCA recovery request status.
+    #     :return: Request response
+    #     """
+    #     record_type = "orca"
+    #     return self.__crud_records(record_type=record_type, verb="post", **kwargs)
 
     # ============== Migration Counts ===============
 
@@ -821,6 +744,7 @@ class CumulusApi:
         """
         Trigger a run of the postgres-migration-count-tool as an async operation of type Migration
         Count Report.
+        :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
         record_type = "migrationCounts"
@@ -829,7 +753,6 @@ class CumulusApi:
     # ============== Dead Letter Archive ===============
     def recover_cumulus_messages(self, bucket: str = None, path: str = None) -> dict:
         """
-
         :param bucket: bucket name for the dead letter queue location
         :type bucket: string
         :param path: Path to dead letter queue records
@@ -837,15 +760,10 @@ class CumulusApi:
         :return: Response of the execution
         :rtype: python dictionary
         """
-        data = {} if [bucket, path] else None
+        data: dict = {}
         if path:
             data['path'] = path
         if bucket:
             data['bucket'] = bucket
         record_type = "deadLetterArchive/recoverCumulusMessages"
         return self.__crud_records(record_type=record_type, verb="post", data=data)
-
-
-if __name__ == "__main__":
-    cml = CumulusApi()
-    cll = cml.list_collections(limit=3)

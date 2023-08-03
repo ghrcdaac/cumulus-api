@@ -33,10 +33,7 @@ class CumulusApi:
         self.INVOKE_BASE_URL = self.config["INVOKE_BASE_URL"].rstrip('/')
         self.cumulus_token = CumulusToken(config=config)
         self.TOKEN = token if token else self.cumulus_token.get_token()
-        self.HEADERS = {
-            'Authorization': f'Bearer {self.TOKEN}',
-            'Cumulus-API-Version': '2',
-        }
+        self.HEADERS = {'Authorization': f'Bearer {self.TOKEN}'}
 
     def __crud_records(self, record_type, verb, data=None, **kwargs):
         """
@@ -134,7 +131,7 @@ class CumulusApi:
         :return: message of success or raise error
         """
         record_type = f"providers/{data['id']}"
-        return self.__crud_records(record_type=record_type, verb="patch", data=data)
+        return self.__crud_records(record_type=record_type, verb="put", data=data)
 
     def delete_provider(self, provider_id):
         """
@@ -193,7 +190,7 @@ class CumulusApi:
         :return:
         """
         record_type = f"collections/{data['name']}/{data['version']}"
-        return self.__crud_records(record_type=record_type, verb="patch", data=data)
+        return self.__crud_records(record_type=record_type, verb="put", data=data)
 
     def delete_collection(self, collection_name, collection_version):
         """
@@ -266,7 +263,7 @@ class CumulusApi:
         record_type = f"granules/{granule_id}"
         data = {} if data is None else data
         data.update({"action": "reingest"})
-        return self.__crud_records(record_type=record_type, data=data, verb="patch")
+        return self.__crud_records(record_type=record_type, data=data, verb="put")
 
     def apply_workflow_to_granule(self, granule_id, workflow_name):
         """
@@ -278,7 +275,7 @@ class CumulusApi:
         """
         record_type = f"granules/{granule_id}"
         data = {"action": "applyWorkflow", "workflow": workflow_name}
-        return self.__crud_records(record_type=record_type, data=data, verb="patch")
+        return self.__crud_records(record_type=record_type, data=data, verb="put")
 
     def move_granule(self, granule_id, regex, bucket, file_path):
         """
@@ -293,7 +290,7 @@ class CumulusApi:
         record_type = f"granules/{granule_id}"
         data = {"action": "move",
                 "destinations": [{"regex": regex, "bucket": bucket, "filepath": file_path}]}
-        return self.__crud_records(record_type=record_type, data=data, verb="patch")
+        return self.__crud_records(record_type=record_type, data=data, verb="put")
 
     def remove_granule_from_cmr(self, granule_id):
         """
@@ -303,7 +300,7 @@ class CumulusApi:
         """
         record_type = f"granules/{granule_id}"
         data = {"action": "removeFromCmr"}
-        return self.__crud_records(record_type=record_type, data=data, verb="patch")
+        return self.__crud_records(record_type=record_type, data=data, verb="put")
 
     def delete_granule(self, granule_id):
         """
@@ -409,7 +406,7 @@ class CumulusApi:
         :return: Returns a mapping of the updated properties.
         """
         record_type = f"rules/{data['name']}"
-        return self.__crud_records(record_type=record_type, verb="patch", data=data)
+        return self.__crud_records(record_type=record_type, verb="put", data=data)
 
     def delete_rule(self, rule_name):
         """
@@ -428,7 +425,7 @@ class CumulusApi:
         """
         record_type = f"rules/{rule_name}"
         data = {"name": rule_name, "action": "rerun"}
-        return self.__crud_records(record_type=record_type, verb="patch", data=data)
+        return self.__crud_records(record_type=record_type, verb="put", data=data)
 
     # ============== Stats ===============
 
@@ -542,7 +539,7 @@ class CumulusApi:
         :return: Request response
         """
         record_type = f"executions/{data['arn']}"
-        return self.__crud_records(record_type=record_type, verb="patch", data=data)
+        return self.__crud_records(record_type=record_type, verb="put", data=data)
 
     def delete_execution(self, execution_arn):
         """
@@ -686,7 +683,7 @@ class CumulusApi:
         :return: Request response
         """
         record_type = "elasticsearch/change-index"
-        return self.__crud_records(record_type=record_type, verb="patch", data=data)
+        return self.__crud_records(record_type=record_type, verb="put", data=data)
 
     def reindex_elasticsearh_from_database(self, **kwargs):
         """

@@ -33,7 +33,10 @@ class CumulusApi:
         self.INVOKE_BASE_URL = self.config["INVOKE_BASE_URL"].rstrip('/')
         self.cumulus_token = CumulusToken(config=config)
         self.TOKEN = token if token else self.cumulus_token.get_token()
-        self.HEADERS = {'Authorization': f'Bearer {self.TOKEN}'}
+        self.HEADERS = {
+            'Authorization': f'Bearer {self.TOKEN}',
+            'Cumulus-API-Version': '2',
+        }
 
     def __crud_records(self, record_type, verb, data=None, **kwargs):
         """
@@ -79,7 +82,10 @@ class CumulusApi:
         # data = {"token": self.TOKEN}
         # refreshed_token = self.__crud_records(record_type="refresh", verb="post", data=data)
         self.TOKEN = self.cumulus_token.get_token()
-        self.HEADERS = {'Authorization': f'Bearer {self.TOKEN}'}
+        self.HEADERS = {
+            'Authorization': f'Bearer {self.TOKEN}',
+            'Cumulus-API-Version': '2',
+        }
 
         # refreshed_token.get('token')
         return True
@@ -263,7 +269,7 @@ class CumulusApi:
         record_type = f"granules/{granule_id}"
         data = {} if data is None else data
         data.update({"action": "reingest"})
-        return self.__crud_records(record_type=record_type, data=data, verb="put")
+        return self.__crud_records(record_type=record_type, data=data, verb="patch")
 
     def apply_workflow_to_granule(self, granule_id, workflow_name):
         """
@@ -275,7 +281,7 @@ class CumulusApi:
         """
         record_type = f"granules/{granule_id}"
         data = {"action": "applyWorkflow", "workflow": workflow_name}
-        return self.__crud_records(record_type=record_type, data=data, verb="put")
+        return self.__crud_records(record_type=record_type, data=data, verb="patch")
 
     def move_granule(self, granule_id, regex, bucket, file_path):
         """
@@ -290,7 +296,7 @@ class CumulusApi:
         record_type = f"granules/{granule_id}"
         data = {"action": "move",
                 "destinations": [{"regex": regex, "bucket": bucket, "filepath": file_path}]}
-        return self.__crud_records(record_type=record_type, data=data, verb="put")
+        return self.__crud_records(record_type=record_type, data=data, verb="patch")
 
     def remove_granule_from_cmr(self, granule_id):
         """
@@ -300,7 +306,7 @@ class CumulusApi:
         """
         record_type = f"granules/{granule_id}"
         data = {"action": "removeFromCmr"}
-        return self.__crud_records(record_type=record_type, data=data, verb="put")
+        return self.__crud_records(record_type=record_type, data=data, verb="patch")
 
     def delete_granule(self, granule_id):
         """

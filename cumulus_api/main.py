@@ -53,6 +53,9 @@ class CumulusApi:
             and_sign = "&"
         if kwargs:
             url = f"{url}?{query}"
+        print(url)
+        print(data)
+        print(self.HEADERS)
         re = getattr(requests, verb.lower())(url=url, json=data, headers=self.HEADERS)
         try:
             return re.json()

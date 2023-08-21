@@ -17,7 +17,7 @@ install_requires = [x.strip() for x in reqs]
 setup(
     name='cumulus-api',
     version=__version__,
-    author='Abdelhak Marouane',
+    author='GHRC Development Team',
     description='Python package using Cumulus API which allows developers to interact with the Cumulus Framework,'
                 ' such as monitoring status or creating, editing, and deleting records ',
     url='https://gitlab.com/ghrc-cloud/cumulus-api',

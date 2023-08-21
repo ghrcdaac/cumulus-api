@@ -22,6 +22,8 @@ class CumulusToken:
         :param config: PyLOT Configuration
         """
         self.config = config
+        if self.config.get("USE_EDL", "false").upper() == 'TRUE':
+            return
         if use_os_env:
             aws_profile = os.getenv('AWS_PROFILE')
             aws_region = os.getenv('AWS_REGION', 'us-west-2')
@@ -118,8 +120,8 @@ class CumulusToken:
 
     def __get_launchpad_adapter(self):
         """
-        Get launchpad adopter
-        return: cumulus token
+        Get launchpad adapter
+        return: launchpad configured request adapter
         """
         error_str = "Getting launchpad adapter"
         backend = default_backend()
@@ -141,14 +143,48 @@ class CumulusToken:
         )
         return adapter
 
+    def initialize_edl_variables(self) -> list:
+        """
+        Initialize variables needed for EDL request
+        """
+        ed_base_url = self.config.get("BASE_URL", "https://uat.urs.earthdata.nasa.gov").rstrip('/')  # Earth data base URL
+        ed_client_id = self.config.get("CLIENT_ID")  # Earth data client (application) id
+        url = f"{ed_base_url}/oauth/authorize?client_id={ed_client_id}" \
+              f"&redirect_uri={self.config.get('INVOKE_BASE_URL').rstrip('/')}/token&response_type=code"
+        user_name, password = self.config.get("USER_NAME"), self.config.get("USER_PASSWORD")
+        return [url, user_name, password]
+
+    def get_edl_token(self):
+        """
+        Get auth token using Earthdata Login to authenticate
+        """
+        url, user_name, password = self.initialize_edl_variables()
+        re = requests.get(url=url, auth=(user_name, password))
+        error_str = "Getting auth token"
+        try:
+            data = re.json()
+            if "time out" in data['message']:
+                logging.error(data['message'])
+                error_str = f"{error_str}: {data['message']}"
+            return data['message']['token']
+        except Exception as ex:
+            error_str = f"{error_str} {str(ex)}"
+            logging.error(error_str)
+            raise error_str
+
     def get_token(self):
         """
-        Get token using launchpad authentication
+        Get API autehntication token
         :return: Token otherwise raise exception
         """
+        if self.config.get("USE_EDL", "false").upper() == 'TRUE':
+            return self.get_edl_token()
+        # Use launchpad authentication
         adapter = self.__get_launchpad_adapter()
         session = requests.Session()
         session.mount("https://", adapter)
         r = session.get(self.config.get("LAUNCHPAD_URL"))
         response = r.json()
         return response["sm_token"]
+        
+

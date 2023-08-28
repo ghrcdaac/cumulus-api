@@ -12,26 +12,26 @@ from .cumulus_token import CumulusToken
 
 # pylint: disable=too-many-public-methods
 class CumulusApi:
-    def __init__(self, token=None, config_file=None):
+    def __init__(self, token=None, config_path=None):
         """
         Initiate cumulus API instance, by default it reads from OS environment
         :param token: Earthdata token
-        :param config_file: absolute or relative path to config file
+        :param config_path: absolute or relative path to config file or directory
         """
         self.allowed_verbs = SimpleNamespace(GET='GET', PATCH='PATCH', POST='POST', PUT='PUT', DELETE='DELETE')
 
-        if not config_file:
+        if not config_path:
             values = [
                 'INVOKE_BASE_URL', 'EDL_UNAME', 'EDL_PWORD', 'AWS_PROFILE', 'AWS_REGION',
                 'LAUNCHPAD_PASSPHRASE_SECRET_NAME', 'LAUNCHPAD_PASSPHRASE', 'FS_LAUNCHPAD_CERT', 'S3URI_LAUNCHPAD_CERT',
                 'LAUNCHPAD_URL'
             ]
+            config = {x: os.getenv(x) for x in values if x in os.environ}
 
-            config = {x: os.getenv(x) for x in values}
         else:
             config_parser = ConfigParser(interpolation=None)
             config_parser.optionxform = str
-            config_parser.read(config_file)
+            config_parser.read(config_path)
             config = dict(config_parser['DEFAULT'])
 
         self.config = config

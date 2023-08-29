@@ -22,7 +22,7 @@ class CumulusApi:
 
         if not config_path:
             values = [
-                'INVOKE_BASE_URL', 'EDL_UNAME', 'EDL_PWORD', 'AWS_PROFILE', 'AWS_REGION',
+                'INVOKE_BASE_URL', 'EDL_UNAME', 'EDL_PWORD', 'CLIENT_ID', 'AWS_PROFILE', 'AWS_REGION',
                 'LAUNCHPAD_PASSPHRASE_SECRET_NAME', 'LAUNCHPAD_PASSPHRASE', 'FS_LAUNCHPAD_CERT', 'S3URI_LAUNCHPAD_CERT',
                 'LAUNCHPAD_URL'
             ]

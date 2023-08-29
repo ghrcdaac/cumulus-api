@@ -34,36 +34,48 @@ Please see examples folder
 
 ## config
 Example of a config file passed to cumulus-api instance
-```angular2html
+```
 [DEFAULT]
-INVOKE_BASE_URL=************       // Cumulus archive URL
-BASE_URL=************              // URS URL (https://uat.urs.earthdata.nasa.gov/)
+# Cumulus
+INVOKE_BASE_URL=                    # Cumulus archive URL
+
+# AWS
+AWS_PROFILE=                        # The AWS profile
+AWS_REGION=                         # The AWS region 
 
 # EDL
-CLIENT_ID=************************ // URS application id
-USER_NAME=************             // URS username
-USER_PASSWORD=************         // URS password
+CLIENT_ID=                          # URS application id
+EDL_UNAME=                          # URS username
+EDL_PWORD=                          # URS password
 
 # Launchpad
-LAUNCHPAD_CERT=****                // path to LAUNCHPAD pfx file
-LAUNCHPAD_PASSPHRASE=*****         // LAUNCHPAD Passphrase
-LAUNCHPAD_URL=*****                // most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
+LAUNCHPAD_PASSPHRASE=               # LAUNCHPAD Passphrase
+LAUNCHPAD_PASSPHRASE_SECRET_NAME=   # AWS Secrets "Secret name" value for the launchpad password
+LAUNCHPAD_URL=                      # most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
+FS_LAUNCHPAD_CERT=                  # local path to LAUNCHPAD pfx file
+S3URI_LAUNCHPAD_CERT=               # S3 URI of LAUNCHPAD pfx file
 ```
 
 ## env.sh
 Example of setting up environment variables
-```code
-INVOKE_BASE_URL=************       // Cumulus archive URL
-BASE_URL=************              // URS URL (https://uat.urs.earthdata.nasa.gov/)
+```
+# Cumulus
+export INVOKE_BASE_URL=                    # Cumulus archive URL
+
+# AWS
+export AWS_PROFILE=                        # The AWS profile
+export AWS_REGION=                         # The AWS region 
 
 # EDL
-CLIENT_ID=************************ // URS application id
-USER_NAME=************             // URS username
-USER_PASSWORD=************         // URS password
+export CLIENT_ID=                          # URS application id
+export EDL_UNAME=                          # URS username
+export EDL_PWORD=                          # URS password
 
 # Launchpad
-LAUNCHPAD_CERT=****                // path to LAUNCHPAD pfx file
-LAUNCHPAD_PASSPHRASE=*****         // LAUNCHPAD Passphrase
-LAUNCHPAD_URL=*****                // most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
+export LAUNCHPAD_PASSPHRASE=               # LAUNCHPAD Passphrase
+export LAUNCHPAD_PASSPHRASE_SECRET_NAME=   # AWS Secrets "Secret name" value for the launchpad password
+export LAUNCHPAD_URL=                      # most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
+export FS_LAUNCHPAD_CERT=                  # local path to LAUNCHPAD pfx file
+export S3URI_LAUNCHPAD_CERT=               # S3 URI of LAUNCHPAD pfx file
 ```
 If you are running this tool locally then you need to add your AWS_PROFILE name to the config.

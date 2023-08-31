@@ -27,27 +27,56 @@ from cumulus_api import CumulusApi
 cml = CumulusApi("path/to/config.cfg")
 ```
 
+Note: The order of precedence for instantiation is a provided token, EDL credentials, and lastly Launchpad. Ensure
+that you are only setting the desired environment variables.
+
 Please see examples folder
 
 ## config
 Example of a config file passed to cumulus-api instance
-```angular2html
+```
 [DEFAULT]
-INVOKE_BASE_URL=************                     // Cumulus archive URL
-S3URI_LAUNCHPAD_CERT=****                       // s3 URI  to LAUNCHPAD pfx file
-LAUNCHPAD_PASSPHRASE_SECRET_NAME=*****         // LAUNCHPADPassphrase  secret id
-LAUNCHPAD_URL=*****                           // most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
-AWS_PROFILE=***                              // (Optional) Only if you want to run it locally
+# Cumulus
+INVOKE_BASE_URL=                    # Cumulus archive URL
+
+# AWS
+AWS_PROFILE=                        # The AWS profile
+AWS_REGION=                         # The AWS region 
+
+# EDL
+CLIENT_ID=                          # URS application id
+EDL_UNAME=                          # URS username
+EDL_PWORD=                          # URS password
+
+# Launchpad
+LAUNCHPAD_PASSPHRASE=               # LAUNCHPAD Passphrase
+LAUNCHPAD_PASSPHRASE_SECRET_NAME=   # AWS Secrets "Secret name" value for the launchpad password
+LAUNCHPAD_URL=                      # most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
+FS_LAUNCHPAD_CERT=                  # local path to LAUNCHPAD pfx file
+S3URI_LAUNCHPAD_CERT=               # S3 URI of LAUNCHPAD pfx file
 ```
 
 ## env.sh
 Example of setting up environment variables
-```code
-#!/usr/bash
-export INVOKE_BASE_URL=************                      // Cumulus archive URL
-export S3URI_LAUNCHPAD_CERT=****                        // s3 URI  to LAUNCHPAD pfx file
-export LAUNCHPAD_PASSPHRASE_SECRET_NAME=*****          // LAUNCHPADPassphrase  secret id
-export LAUNCHPAD_URL=*****                            // most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
-export AWS_PROFILE=***                               // (Optional) Only if you want to run it locally
 ```
-If you are running this tool locally you need to add your AWS_PROFILE name to the config
+# Cumulus
+export INVOKE_BASE_URL=                    # Cumulus archive URL
+
+# AWS
+export AWS_PROFILE=                        # The AWS profile
+export AWS_REGION=                         # The AWS region 
+
+# EDL
+export CLIENT_ID=                          # URS application id
+export EDL_UNAME=                          # URS username
+export EDL_PWORD=                          # URS password
+
+# Launchpad
+export LAUNCHPAD_PASSPHRASE=               # LAUNCHPAD Passphrase
+export LAUNCHPAD_PASSPHRASE_SECRET_NAME=   # AWS Secrets "Secret name" value for the launchpad password
+export LAUNCHPAD_URL=                      # most likely https://api.launchpad.nasa.gov/icam/api/sm/v1/gettoken
+export FS_LAUNCHPAD_CERT=                  # local path to LAUNCHPAD pfx file
+export S3URI_LAUNCHPAD_CERT=               # S3 URI of LAUNCHPAD pfx file
+```
+If you are running this tool locally and using AWS hosted launchpad credentials then you need to add your AWS_PROFILE 
+name to the config.

@@ -78,4 +78,5 @@ export LAUNCHPAD_URL=                      # most likely https://api.launchpad.n
 export FS_LAUNCHPAD_CERT=                  # local path to LAUNCHPAD pfx file
 export S3URI_LAUNCHPAD_CERT=               # S3 URI of LAUNCHPAD pfx file
 ```
-If you are running this tool locally then you need to add your AWS_PROFILE name to the config.
+If you are running this tool locally and using AWS hosted launchpad credentials then you need to add your AWS_PROFILE 
+name to the config.

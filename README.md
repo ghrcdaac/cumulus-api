@@ -38,6 +38,7 @@ Example of a config file passed to cumulus-api instance
 [DEFAULT]
 # Cumulus
 INVOKE_BASE_URL=                    # Cumulus archive URL
+PRIVATE_API_LAMBDA_ARN=             # Cumulus PrivateApiLambda ARN
 
 # AWS
 AWS_PROFILE=                        # The AWS profile
@@ -61,6 +62,7 @@ Example of setting up environment variables
 ```
 # Cumulus
 export INVOKE_BASE_URL=                    # Cumulus archive URL
+export PRIVATE_API_LAMBDA_ARN=             # Cumulus PrivateApiLambda ARN
 
 # AWS
 export AWS_PROFILE=                        # The AWS profile

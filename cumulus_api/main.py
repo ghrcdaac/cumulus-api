@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -5,6 +6,7 @@ from configparser import ConfigParser
 from json.decoder import JSONDecodeError
 from types import SimpleNamespace
 
+import boto3
 from requests import Session
 
 from .cumulus_token import CumulusToken
@@ -24,7 +26,7 @@ class CumulusApi:
             values = [
                 'INVOKE_BASE_URL', 'EDL_UNAME', 'EDL_PWORD', 'CLIENT_ID', 'AWS_PROFILE', 'AWS_REGION',
                 'LAUNCHPAD_PASSPHRASE_SECRET_NAME', 'LAUNCHPAD_PASSPHRASE', 'FS_LAUNCHPAD_CERT', 'S3URI_LAUNCHPAD_CERT',
-                'LAUNCHPAD_URL'
+                'LAUNCHPAD_URL', 'PRIVATE_API_LAMBDA_ARN'
             ]
             config = {x: os.getenv(x) for x in values if x in os.environ}
 
@@ -34,26 +36,26 @@ class CumulusApi:
             config_parser.read(config_path)
             config = dict(config_parser['DEFAULT'])
 
-        self.config = config
-        self.INVOKE_BASE_URL = self.config['INVOKE_BASE_URL'].rstrip('/')
-        self.cumulus_token = None
+        if 'PRIVATE_API_LAMBDA_ARN' not in config:
+            self.config = config
+            self.INVOKE_BASE_URL = self.config['INVOKE_BASE_URL'].rstrip('/')
 
-        if token:
-            self.TOKEN = token
-        elif config.get('EDL_UNAME') and config.get('EDL_PWORD'):
-            self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
-            self.HEADERS = None
-            self.TOKEN = self.get_token()
-        else:
-            self.cumulus_token = CumulusToken(config=config)
-            self.TOKEN = self.cumulus_token.get_token()
+            if token:
+                self.TOKEN = token
+            elif config.get('EDL_UNAME') and config.get('EDL_PWORD'):
+                self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
+                self.HEADERS = None
+                self.TOKEN = self.get_token()
+            else:
+                self.cumulus_token = CumulusToken(config=config)
+                self.TOKEN = self.cumulus_token.get_token()
 
-        self.HEADERS = {
-            'Authorization': f'Bearer {self.TOKEN}',
-            'Cumulus-API-Version': '2',
-        }
+            self.HEADERS = {
+                'Authorization': f'Bearer {self.TOKEN}',
+                'Cumulus-API-Version': '2',
+            }
 
-    def __crud_records(self, record_type, verb, data=None, auth=None, **kwargs):
+    def __use_endpoints(self, record_type, verb, data='', auth=None, **kwargs):
         """
         :param verb: HTTP requests verbs GET|POST|PUT|DELETE
         :param record_type: Provider | Collection | PDR ...
@@ -79,6 +81,56 @@ class CumulusApi:
             logging.error("Cumulus CRUD: %s", err)
             raise
 
+    @staticmethod
+    def __add_query_string_parameters(**kwargs):
+        qsp = {}
+        if 'searchContext' in kwargs:
+            # We need to slice the search context string to remove the first and last 3 characters as there are extra
+            # strings that will cause an error. Example %5B1692388761773%5D
+            context_list = [kwargs.pop('searchContext')[3:-3]]
+            # The searchContext must be a list containing a json string of a list ['[1234]']
+            qsp.update({'searchContext': json.dumps(context_list)})
+
+        for k, v in kwargs.items():
+            temp_lst = [str(v)]
+            qsp.update({k: temp_lst})
+
+        return qsp
+
+    def __use_private_api_lambda(self, record_type, verb, data='', **kwargs):
+        boto3.setup_default_session(profile_name=os.getenv('AWS_PROFILE'))
+        client = boto3.client('lambda')
+        payload = {
+            "httpMethod": verb,
+            "resource": "/{proxy+}",
+            "path": f"/{record_type}",
+            "headers": {
+                "Content-Type": "application/json",
+                "Cumulus-API-Version": "2"
+            },
+            "queryStringParameters": self.__add_query_string_parameters(**kwargs) if kwargs else '',
+            "body": json.dumps(data) if data else ''
+        }
+        # print(f'payload: {payload}')
+        rsp = client.invoke(
+            FunctionName=os.getenv('PRIVATE_API_LAMBDA_ARN'),
+            Payload=json.dumps(payload).encode()
+        )
+        # print(f'Lambda Response: {rsp}')
+        lambda_payload = json.loads(rsp.get('Payload').read())
+        body = lambda_payload.get('body')
+
+        return json.loads(body)
+
+    def __crud_records(self, record_type, verb, data=None, auth=None, **kwargs):
+        if 'PRIVATE_API_LAMBDA_ARN' not in os.environ:
+            print('Using endpoints...')
+            return self.__use_endpoints(record_type, verb, data, auth, **kwargs)
+
+        else:
+            print('Using lambda...')
+            return self.__use_private_api_lambda(record_type, verb, data, **kwargs)
+
     # ============== Version ===============
     def get_version(self):
         """
@@ -92,7 +144,7 @@ class CumulusApi:
         return self.__crud_records(
             record_type='token', verb=self.allowed_verbs.GET, auth=self.auth
         ).get('message').get('token')
-        
+
     def refresh_token(self):
         """
         Refreshes a bearer token received from oAuth with Earthdata Login service.

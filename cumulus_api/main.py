@@ -102,6 +102,7 @@ class CumulusApi:
     def __use_private_api_lambda(self, record_type, verb, data='', **kwargs):
         boto3.setup_default_session(profile_name=os.getenv('AWS_PROFILE'))
         client = boto3.client('lambda')
+        # Payload Reference: https://github.com/nasa/cumulus/blob/v15.0.4/packages/api-client/src/types.ts#L6-L13
         payload = {
             "httpMethod": verb,
             "resource": "/{proxy+}",

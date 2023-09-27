@@ -27,17 +27,20 @@ from cumulus_api import CumulusApi
 cml = CumulusApi("path/to/config.cfg")
 ```
 
-Note: The order of precedence for instantiation is a provided token, EDL credentials, and lastly Launchpad. Ensure
-that you are only setting the desired environment variables.
+Note: The order of precedence for instantiation is having set the `PRIVATE_API_LAMBDA_ARN`, a provided token, 
+EDL credentials, and lastly Launchpad. Ensure that you are the desired environment variables.
 
 Please see examples folder
 
 ## config
-Example of a config file passed to cumulus-api instance
+Example of a config file passed to cumulus-api instance. 
 ```
 [DEFAULT]
 # Cumulus
 INVOKE_BASE_URL=                    # Cumulus archive URL
+
+# Private API Lambda
+PRIVATE_API_LAMBDA_ARN=             # Cumulus PrivateApiLambda ARN
 
 # AWS
 AWS_PROFILE=                        # The AWS profile
@@ -62,6 +65,9 @@ Example of setting up environment variables
 # Cumulus
 export INVOKE_BASE_URL=                    # Cumulus archive URL
 
+# Private API Lambda
+export PRIVATE_API_LAMBDA_ARN=             # Cumulus PrivateApiLambda ARN
+
 # AWS
 export AWS_PROFILE=                        # The AWS profile
 export AWS_REGION=                         # The AWS region 
@@ -78,5 +84,5 @@ export LAUNCHPAD_URL=                      # most likely https://api.launchpad.n
 export FS_LAUNCHPAD_CERT=                  # local path to LAUNCHPAD pfx file
 export S3URI_LAUNCHPAD_CERT=               # S3 URI of LAUNCHPAD pfx file
 ```
-If you are running this tool locally and using AWS hosted launchpad credentials then you need to add your AWS_PROFILE 
-name to the config.
+If you are running this tool locally and using AWS hosted launchpad credentials then you may need to add your 
+AWS_PROFILE name to the config.

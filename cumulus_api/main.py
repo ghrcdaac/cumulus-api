@@ -37,9 +37,9 @@ class CumulusApi:
             config = dict(config_parser['DEFAULT'])
 
         if 'PRIVATE_API_LAMBDA_ARN' not in config:
+            self.crud_function = self.__use_endpoints
             self.config = config
             self.INVOKE_BASE_URL = self.config['INVOKE_BASE_URL'].rstrip('/')
-
             if token:
                 self.TOKEN = token
             elif config.get('EDL_UNAME') and config.get('EDL_PWORD'):
@@ -55,7 +55,10 @@ class CumulusApi:
                 'Cumulus-API-Version': '2',
             }
 
-    def __use_endpoints(self, record_type, verb, data='', auth=None, **kwargs):
+        else:
+            self.crud_function = self.__use_private_api_lambda
+
+    def __use_endpoints(self, record_type, verb, data=None, auth=None, **kwargs):
         """
         :param verb: HTTP requests verbs GET|POST|PUT|DELETE
         :param record_type: Provider | Collection | PDR ...
@@ -74,7 +77,6 @@ class CumulusApi:
         rsp = getattr(session, verb.lower())(url=url, json=data, headers=self.HEADERS, auth=auth)
         if re.search('https://.*urs.earthdata.nasa.gov/oauth/authorize', rsp.url):
             rsp = session.get(rsp.url, auth=auth)
-
         try:
             return rsp.json()
         except JSONDecodeError as err:
@@ -111,25 +113,17 @@ class CumulusApi:
             "queryStringParameters": self.__add_query_string_parameters(**kwargs) if kwargs else '',
             "body": json.dumps(data) if data else ''
         }
-        # print(f'payload: {payload}')
         rsp = client.invoke(
             FunctionName=os.getenv('PRIVATE_API_LAMBDA_ARN'),
             Payload=json.dumps(payload).encode()
         )
-        # print(f'Lambda Response: {rsp}')
         lambda_payload = json.loads(rsp.get('Payload').read())
         body = lambda_payload.get('body')
 
         return json.loads(body)
 
-    def __crud_records(self, record_type, verb, data=None, auth=None, **kwargs):
-        if 'PRIVATE_API_LAMBDA_ARN' not in os.environ:
-            print('Using endpoints...')
-            return self.__use_endpoints(record_type, verb, data, auth, **kwargs)
-
-        else:
-            print('Using lambda...')
-            return self.__use_private_api_lambda(record_type, verb, data, **kwargs)
+    def __crud_records(self, **kwargs):
+        return self.crud_function(**kwargs)
 
     # ============== Version ===============
     def get_version(self):

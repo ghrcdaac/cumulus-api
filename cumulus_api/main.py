@@ -497,6 +497,16 @@ class CumulusApi:
         :return: Returns a mapping of the updated properties.
         """
         record_type = f"rules/{data['name']}"
+        return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.PATCH, data=data)
+
+    def replace_rule(self, data):
+        """
+        Replace an existing rule. Expects payload to specify the entire rule object, and will
+        completely replace the existing rule with the specified payload.
+        :param data: json definition of the rule
+        :return: update response
+        """
+        record_type = f"rules/{data.get('name')}"
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.PUT, data=data)
 
     def delete_rule(self, rule_name):

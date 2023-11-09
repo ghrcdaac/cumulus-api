@@ -298,9 +298,8 @@ class CumulusApi:
         :return:
         """
         if collection_id:
-            record_type = f"granules/{collection_id}/{granule_id}"
-        else:
-            record_type = f"granules/{granule_id}"
+            collection_id = f'{collection_id}/'
+        record_type = f"granules/{collection_id}{granule_id}"
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.GET, **kwargs)
 
     def create_granule(self, data):
@@ -318,11 +317,10 @@ class CumulusApi:
         :param data: json object containing updated granule definition
         :return: Request response
         """
-        if 'collection_id' in data:
-            record_type = f"granules/{data.get('collectionId')}/{data.get('granuleId')}"
-        else:
-            record_type = f"granules/{data.get('granuleId')}"
-
+        collection_id = data.get('collectionId', '')
+        if collection_id:
+            collection_id = f'{collection_id}/'
+        record_type = f"granules/{collection_id}{data.get('granuleId')}"
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.PATCH, data=data)
 
     def associate_execution(self, data):
@@ -397,9 +395,8 @@ class CumulusApi:
         :return:
         """
         if collection_id:
-            record_type = f"granules/{collection_id}/{granule_id}"
-        else:
-            record_type = f"granules/{granule_id}"
+            collection_id = f'{collection_id}/'
+        record_type = f"granules/{collection_id}{granule_id}"
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.DELETE)
 
     def granules_bulk_op(self, data):

@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from configparser import SectionProxy
-from typing import Dict, Union
+from typing import Union
 
 import requests
 from cryptography.hazmat.backends import default_backend
@@ -104,8 +104,6 @@ class CumulusToken:
 
     def get_launchpad_secret_phrase(self) -> bytes:
         """
-
-
         :return:
         :rtype:
         """

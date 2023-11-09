@@ -88,7 +88,7 @@ class CumulusApi:
         qsp = {}
         if 'searchContext' in kwargs:
             # We need to slice the search context string to remove the first and last 3 characters as there are extra
-            # strings that will cause an error. Example %5B1692388761773%5D
+            # characters that will cause an error. Example %5B1692388761773%5D
             context_list = [kwargs.pop('searchContext')[3:-3]]
             # The searchContext must be a list containing a json string of a list ['[1234]']
             qsp.update({'searchContext': json.dumps(context_list)})
@@ -289,14 +289,18 @@ class CumulusApi:
         record_type = "granules"
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.GET, **kwargs)
 
-    def get_granule(self, granule_id, **kwargs):
+    def get_granule(self, collection_id='', granule_id='', **kwargs):
         """
         Get a granule
         :param granule_id: cumulus granule id
+        :param collection_id: ID of the collection the granule belongs to
         :param kwargs: cumulus query strings and parameters
         :return:
         """
-        record_type = f"granules/{granule_id}"
+        if collection_id:
+            record_type = f"granules/{collection_id}/{granule_id}"
+        else:
+            record_type = f"granules/{granule_id}"
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.GET, **kwargs)
 
     def create_granule(self, data):
@@ -314,7 +318,11 @@ class CumulusApi:
         :param data: json object containing updated granule definition
         :return: Request response
         """
-        record_type = f"granules/{data['granuleId']}"
+        if 'collection_id' in data:
+            record_type = f"granules/{data.get('collectionId')}/{data.get('granuleId')}"
+        else:
+            record_type = f"granules/{data.get('granuleId')}"
+
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.PATCH, data=data)
 
     def associate_execution(self, data):
@@ -377,13 +385,21 @@ class CumulusApi:
         data = {"action": "removeFromCmr"}
         return self.__crud_records(record_type=record_type, data=data, verb=self.allowed_verbs.PATCH)
 
-    def delete_granule(self, granule_id):
+    def replace_granule(self, data):
+        record_type = f'granules/{data.get("collection_id")}/{data.get("granule_id")}'
+        return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.PUT, data=data)
+
+    def delete_granule(self, collection_id='', granule_id=''):
         """
         Delete a granule from Cumulus. It must already be removed from CMR.
         :param granule_id:
+        :param collection_id:
         :return:
         """
-        record_type = f"granules/{granule_id}"
+        if collection_id:
+            record_type = f"granules/{collection_id}/{granule_id}"
+        else:
+            record_type = f"granules/{granule_id}"
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.DELETE)
 
     def granules_bulk_op(self, data):
@@ -481,6 +497,16 @@ class CumulusApi:
         :return: Returns a mapping of the updated properties.
         """
         record_type = f"rules/{data['name']}"
+        return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.PATCH, data=data)
+
+    def replace_rule(self, data):
+        """
+        Replace an existing rule. Expects payload to specify the entire rule object, and will
+        completely replace the existing rule with the specified payload.
+        :param data: json definition of the rule
+        :return: update response
+        """
+        record_type = f"rules/{data.get('name')}"
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.PUT, data=data)
 
     def delete_rule(self, rule_name):
@@ -543,16 +569,6 @@ class CumulusApi:
         record_type = f"logs/{execution_name}"
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.GET, **kwargs)
 
-    # ============== Granule CSV ===============
-
-    def get_granules_csv(self):
-        """
-        Get a CSV file of all the granule in the Cumulus database.
-        :return:
-        """
-        record_type = "granule-csv"
-        return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.GET)
-
     # ============== Executions ===============
 
     def list_executions(self, **kwargs):
@@ -585,6 +601,7 @@ class CumulusApi:
     def search_executions_by_granules(self, data, **kwargs):
         """
         Return executions associated with specific granules
+        :param data: json search definition
         :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
@@ -594,6 +611,7 @@ class CumulusApi:
     def search_workflows_by_granules(self, data, **kwargs):
         """
         Return the workflows that have run on specific granules
+        :param data: json search definition
         :param kwargs: Cumulus query strings and parameters
         :return: Request response
         """
@@ -638,6 +656,7 @@ class CumulusApi:
     def get_workflow(self, workflow_name, **kwargs):
         """
         List workflows
+        :param workflow_name: The name of the workflow to retrieve
         :param kwargs: Cumulus query strings and parameters
         :return:
         """

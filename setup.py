@@ -2,7 +2,7 @@
 import os
 from codecs import open
 from setuptools import setup, find_packages
-from cumulus_api.version import __version__
+from cumulus_api import version
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -12,7 +12,7 @@ install_requires = [x.strip() for x in reqs]
 
 setup(
     name='cumulus-api',
-    version=__version__,
+    version=version.__version__,
     author='Abdelhak Marouane',
     description='Python package using Cumulus API which allows developers to interact with the Cumulus Framework,'
                 ' such as monitoring status or creating, editing, and deleting records ',

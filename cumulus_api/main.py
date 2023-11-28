@@ -21,6 +21,8 @@ class CumulusApi:
         :param config_path: absolute or relative path to config file or directory
         """
         self.allowed_verbs = SimpleNamespace(GET='GET', PATCH='PATCH', POST='POST', PUT='PUT', DELETE='DELETE')
+        self.TOKEN = token
+        self.cumulus_token = None
 
         if not config_path:
             values = [
@@ -40,15 +42,15 @@ class CumulusApi:
             self.crud_function = self.__use_endpoints
             self.config = config
             self.INVOKE_BASE_URL = self.config['INVOKE_BASE_URL'].rstrip('/')
-            if token:
-                self.TOKEN = token
-            elif config.get('EDL_UNAME') and config.get('EDL_PWORD'):
-                self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
-                self.HEADERS = None
-                self.TOKEN = self.get_token()
-            else:
-                self.cumulus_token = CumulusToken(config=config)
-                self.TOKEN = self.cumulus_token.get_token()
+
+            if not self.TOKEN:
+                if config.get('EDL_UNAME') and config.get('EDL_PWORD'):
+                    self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
+                    self.HEADERS = None
+                    self.TOKEN = self.get_token()
+                else:
+                    self.cumulus_token = CumulusToken(config=config)
+                    self.TOKEN = self.cumulus_token.get_token()
 
             self.HEADERS = {
                 'Authorization': f'Bearer {self.TOKEN}',

@@ -125,9 +125,8 @@ class CumulusApi:
         body = lambda_payload.get('body')
         try:
             return json.loads(body)
-        except JSONDecodeError as err:
-            print(body)
-            logging.error("Cumulus CRUD: %s", err)
+        except JSONDecodeError:
+            logging.error(f'Cumulus API response was not valid JSON: {body}')
             raise
 
     def __crud_records(self, **kwargs):

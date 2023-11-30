@@ -47,11 +47,13 @@ class CumulusApi:
 
             if 'EDL_UNAME' in config and 'EDL_PWORD' in config:
                 self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
-                if not self.TOKEN:
+
+            if not self.TOKEN:
+                if self.auth:
                     self.TOKEN = self.get_token().get('message').get('token')
-            else:
-                self.cumulus_token = CumulusToken(config=config)
-                self.TOKEN = self.cumulus_token.get_token()
+                else:
+                    self.cumulus_token = CumulusToken(config=config)
+                    self.TOKEN = self.cumulus_token.get_token()
 
             self.HEADERS = {
                 'Authorization': f'Bearer {self.TOKEN}',

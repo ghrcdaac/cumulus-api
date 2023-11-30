@@ -45,13 +45,13 @@ class CumulusApi:
             self.config = config
             self.INVOKE_BASE_URL = self.config['INVOKE_BASE_URL'].rstrip('/')
 
-            if not self.TOKEN:
-                if 'EDL_UNAME' in config and 'EDL_PWORD' in config:
-                    self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
+            if 'EDL_UNAME' in config and 'EDL_PWORD' in config:
+                self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
+                if not self.TOKEN:
                     self.TOKEN = self.get_token().get('message').get('token')
-                else:
-                    self.cumulus_token = CumulusToken(config=config)
-                    self.TOKEN = self.cumulus_token.get_token()
+            else:
+                self.cumulus_token = CumulusToken(config=config)
+                self.TOKEN = self.cumulus_token.get_token()
 
             self.HEADERS = {
                 'Authorization': f'Bearer {self.TOKEN}',
@@ -82,8 +82,8 @@ class CumulusApi:
             rsp = session.get(rsp.url, auth=auth)
         try:
             return rsp.json()
-        except JSONDecodeError as err:
-            logging.error("Cumulus CRUD: %s", err)
+        except JSONDecodeError:
+            logging.error(f'Cumulus API response was not valid JSON: {rsp}')
             raise
 
     @staticmethod

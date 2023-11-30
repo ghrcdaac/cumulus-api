@@ -23,6 +23,8 @@ class CumulusApi:
         self.allowed_verbs = SimpleNamespace(GET='GET', PATCH='PATCH', POST='POST', PUT='PUT', DELETE='DELETE')
         self.TOKEN = token
         self.cumulus_token = None
+        self.auth = None
+        self.HEADERS = None
 
         if not config_path:
             values = [
@@ -43,14 +45,13 @@ class CumulusApi:
             self.config = config
             self.INVOKE_BASE_URL = self.config['INVOKE_BASE_URL'].rstrip('/')
 
-            if not self.TOKEN:
-                if config.get('EDL_UNAME') and config.get('EDL_PWORD'):
-                    self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
-                    self.HEADERS = None
-                    self.TOKEN = self.get_token()
-                else:
-                    self.cumulus_token = CumulusToken(config=config)
-                    self.TOKEN = self.cumulus_token.get_token()
+            if 'EDL_UNAME' in config and 'EDL_PWORD' in config:
+                self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
+                if not self.TOKEN:
+                    self.TOKEN = self.get_token().get('message').get('token')
+            else:
+                self.cumulus_token = CumulusToken(config=config)
+                self.TOKEN = self.cumulus_token.get_token()
 
             self.HEADERS = {
                 'Authorization': f'Bearer {self.TOKEN}',
@@ -122,8 +123,12 @@ class CumulusApi:
         )
         lambda_payload = json.loads(rsp.get('Payload').read())
         body = lambda_payload.get('body')
-
-        return json.loads(body)
+        try:
+            return json.loads(body)
+        except JSONDecodeError as err:
+            print(body)
+            logging.error("Cumulus CRUD: %s", err)
+            raise
 
     def __crud_records(self, **kwargs):
         return self.crud_function(**kwargs)
@@ -138,9 +143,11 @@ class CumulusApi:
 
     # ============== Token ==================
     def get_token(self):
-        return self.__crud_records(
+        rsp = self.__crud_records(
             record_type='token', verb=self.allowed_verbs.GET, auth=self.auth
-        ).get('message').get('token')
+        )
+        # print(f'token rsp: {rsp}')
+        return rsp
 
     def refresh_token(self):
         """

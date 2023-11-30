@@ -142,11 +142,9 @@ class CumulusApi:
 
     # ============== Token ==================
     def get_token(self):
-        rsp = self.__crud_records(
+        return self.__crud_records(
             record_type='token', verb=self.allowed_verbs.GET, auth=self.auth
         )
-        # print(f'token rsp: {rsp}')
-        return rsp
 
     def refresh_token(self):
         """

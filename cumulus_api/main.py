@@ -21,6 +21,10 @@ class CumulusApi:
         :param config_path: absolute or relative path to config file or directory
         """
         self.allowed_verbs = SimpleNamespace(GET='GET', PATCH='PATCH', POST='POST', PUT='PUT', DELETE='DELETE')
+        self.TOKEN = token
+        self.cumulus_token = None
+        self.auth = None
+        self.HEADERS = None
 
         if not config_path:
             values = [
@@ -40,15 +44,16 @@ class CumulusApi:
             self.crud_function = self.__use_endpoints
             self.config = config
             self.INVOKE_BASE_URL = self.config['INVOKE_BASE_URL'].rstrip('/')
-            if token:
-                self.TOKEN = token
-            elif config.get('EDL_UNAME') and config.get('EDL_PWORD'):
+
+            if 'EDL_UNAME' in config and 'EDL_PWORD' in config:
                 self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
-                self.HEADERS = None
-                self.TOKEN = self.get_token()
-            else:
-                self.cumulus_token = CumulusToken(config=config)
-                self.TOKEN = self.cumulus_token.get_token()
+
+            if not self.TOKEN:
+                if self.auth:
+                    self.TOKEN = self.get_token().get('message').get('token')
+                else:
+                    self.cumulus_token = CumulusToken(config=config)
+                    self.TOKEN = self.cumulus_token.get_token()
 
             self.HEADERS = {
                 'Authorization': f'Bearer {self.TOKEN}',
@@ -79,8 +84,8 @@ class CumulusApi:
             rsp = session.get(rsp.url, auth=auth)
         try:
             return rsp.json()
-        except JSONDecodeError as err:
-            logging.error("Cumulus CRUD: %s", err)
+        except JSONDecodeError:
+            logging.error(f'Cumulus API response was not valid JSON: {rsp}')
             raise
 
     @staticmethod
@@ -120,8 +125,11 @@ class CumulusApi:
         )
         lambda_payload = json.loads(rsp.get('Payload').read())
         body = lambda_payload.get('body')
-
-        return json.loads(body)
+        try:
+            return json.loads(body)
+        except JSONDecodeError:
+            logging.error(f'Cumulus API response was not valid JSON: {body}')
+            raise
 
     def __crud_records(self, **kwargs):
         return self.crud_function(**kwargs)
@@ -138,7 +146,7 @@ class CumulusApi:
     def get_token(self):
         return self.__crud_records(
             record_type='token', verb=self.allowed_verbs.GET, auth=self.auth
-        ).get('message').get('token')
+        )
 
     def refresh_token(self):
         """

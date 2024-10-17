@@ -392,7 +392,7 @@ class CumulusApi:
         return self.__crud_records(record_type=record_type, data=data, verb=self.allowed_verbs.PATCH)
 
     def replace_granule(self, data):
-        record_type = f'granules/{data.get("collection_id")}/{data.get("granule_id")}'
+        record_type = f'granules/{data.get("collectionId")}/{data.get("granuleId")}'
         return self.__crud_records(record_type=record_type, verb=self.allowed_verbs.PUT, data=data)
 
     def delete_granule(self, collection_id='', granule_id=''):

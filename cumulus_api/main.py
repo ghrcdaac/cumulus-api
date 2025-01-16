@@ -44,6 +44,7 @@ class CumulusApi:
             self.crud_function = self.__use_endpoints
             self.config = config
             self.INVOKE_BASE_URL = self.config['INVOKE_BASE_URL'].rstrip('/')
+            self.session = Session()
 
             if 'EDL_UNAME' in config and 'EDL_PWORD' in config:
                 self.auth = (config.get('EDL_UNAME'), config.get('EDL_PWORD'))
@@ -61,6 +62,9 @@ class CumulusApi:
             }
 
         else:
+            boto3.setup_default_session(profile_name=os.getenv('AWS_PROFILE'))
+            self.lambda_client = boto3.client('lambda')
+            self.private_api_lambda_arn = os.getenv('PRIVATE_API_LAMBDA_ARN')
             self.crud_function = self.__use_private_api_lambda
 
     def __use_endpoints(self, record_type, verb, data=None, auth=None, **kwargs):
@@ -70,7 +74,6 @@ class CumulusApi:
         :param data: json data to be ingested
         :return: False in case of error
         """
-        session = Session()
         url = f"{self.INVOKE_BASE_URL}/v1/{record_type}"
         and_sign = ""
         query = ""
@@ -79,9 +82,9 @@ class CumulusApi:
             and_sign = "&"
         if kwargs:
             url = f"{url}?{query}"
-        rsp = getattr(session, verb.lower())(url=url, json=data, headers=self.HEADERS, auth=auth)
+        rsp = getattr(self.session, verb.lower())(url=url, json=data, headers=self.HEADERS, auth=auth)
         if re.search('https://.*urs.earthdata.nasa.gov/oauth/authorize', rsp.url):
-            rsp = session.get(rsp.url, auth=auth)
+            rsp = self.session.get(rsp.url, auth=auth)
         try:
             return rsp.json()
         except JSONDecodeError:
@@ -105,8 +108,6 @@ class CumulusApi:
         return qsp
 
     def __use_private_api_lambda(self, record_type, verb, data='', **kwargs):
-        boto3.setup_default_session(profile_name=os.getenv('AWS_PROFILE'))
-        client = boto3.client('lambda')
         # Payload Reference: https://github.com/nasa/cumulus/blob/v15.0.4/packages/api-client/src/types.ts#L6-L13
         payload = {
             "httpMethod": verb,
@@ -119,8 +120,8 @@ class CumulusApi:
             "queryStringParameters": self.__add_query_string_parameters(**kwargs) if kwargs else '',
             "body": json.dumps(data) if data else ''
         }
-        rsp = client.invoke(
-            FunctionName=os.getenv('PRIVATE_API_LAMBDA_ARN'),
+        rsp = self.lambda_client.invoke(
+            FunctionName=self.private_api_lambda_arn,
             Payload=json.dumps(payload).encode()
         )
         lambda_payload = json.loads(rsp.get('Payload').read())
@@ -350,7 +351,7 @@ class CumulusApi:
         :return:
         """
         record_type = f"granules/{granule_id}"
-        data = {} if data is None else data
+        data = data if data else {}
         data.update({"action": "reingest"})
         return self.__crud_records(record_type=record_type, data=data, verb=self.allowed_verbs.PATCH)
 

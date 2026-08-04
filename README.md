@@ -1,5 +1,8 @@
+⛔ [DEPRECATED] - This repository has been open sourced and moved to https://github.com/nasa/Cumulus-API-Python. Please reference the new location for updates.
 
-# py-Cumulus-api
+
+
+# [DEPRECATED] - py-Cumulus-api
 Python client library that abstracts
 [CUMULUS API](https://nasa.github.io/cumulus-api/)
  calls  to interact with the [Cumulus Framework](https://github.com/cumulus-nasa/cumulus), such as monitoring status or
